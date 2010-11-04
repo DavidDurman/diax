@@ -29,3 +29,9 @@ body {
   border: 2px solid lightgray;
 }
 
+#uml-state-color { 
+  border: 1px solid gray;
+}
+#uml-state-color > div { 
+  border: none !important;
+}
