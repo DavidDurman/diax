@@ -1,0 +1,31 @@
+body { 
+  background: white url(../images/glossymetal.jpg) repeat scroll 0% 0%;
+  padding: 0;
+  margin: 0;
+}
+
+#main {  
+  background-image: url(../images/fadestrip.png);
+  background-position: 0% 0%;
+  background-repeat: repeat-x;
+}
+
+.clearfix { 
+  display: block;
+}
+
+.clearfix::after { 
+  clear: both;
+  content: '.';
+  display: block;
+  height: 0px;
+  visibility: hidden;
+}
+
+#app { 
+  margin: 0 auto 0 auto;
+  width: 800px;
+  height: 698px;
+  border: 2px solid lightgray;
+}
+

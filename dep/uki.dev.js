@@ -8,8 +8,7 @@
  * Copyright (c) 2009 John Resig
  */
 (function() {
-    
-/**
+  /**
  * Global uki constants, for speed optimization and better merging
  */
 /** @ignore */
@@ -26,6 +25,8 @@ var root = this,
     
     PX = 'px';
 
+
+
 /**
  * Shortcut access to uki.build, uki.Selector.find and uki.Collection constructor
  * uki('#id') is also a shortcut for search by id
@@ -38,16 +39,19 @@ var root = this,
  * @return {uki.Collection}
  */
 root.uki = root.uki || function(val, context) {
-    if (typeof val == 'string') {
+    if (typeof val === "string") {
+	
         var m = val.match(/^#((?:[\w\u00c0-\uFFFF_-]|\\.)+)$/),
             e = m && uki._ids[m[1]];
         if (m && !context) {
             return new uki.Collection( e ? [e] : [] );
         }
         return uki.find(val, context);
+		
     }
     if (val.length === undefined) val = [val];
     if (val.length > 0 && uki.isFunction(val[0].typeName)) return new uki.Collection(val);
+	
     return uki.build(val);
 };
 
@@ -55,7 +59,7 @@ root.uki = root.uki || function(val, context) {
  * @type string
  * @field
  */
-uki.version = '0.2.2';
+uki.version = '0.3.8';
 uki.guid = 1;
 
 /**
@@ -66,12 +70,16 @@ uki.F = function() { return false; };
 uki._ids = {};
 
 uki.registerId = function(comp) {
-    uki._ids[uki.attr(comp, 'id')] = comp;
+    uki._ids[ uki.attr(comp, 'id') ] = comp;
 }; 
 uki.unregisterId = function(comp) {
-    uki._ids[uki.attr(comp, 'id')] = undefined;
+    uki._ids[ uki.attr(comp, 'id') ] = undefined;
 };
 
+
+
+(function() {
+    
 var toString = Object.prototype.toString,
     trim = String.prototype.trim,
     slice = Array.prototype.slice,
@@ -80,7 +88,10 @@ var toString = Object.prototype.toString,
     
 var marked = '__uki_marked';
 
- 
+// dummy subclass
+/** @ignore */
+function inheritance () {}
+
 /**
  * Utility functions.
  */
@@ -236,7 +247,7 @@ var utils = {
     	        array[i][marked] = true;
     	    };
     	    for (i = 0; i < result.length; i++) { 
-    	        delete result[i][marked] 
+    	        delete result[i][marked];
     	    };
     	    return result;
         	
@@ -331,13 +342,13 @@ var utils = {
      */
     extend: function() {
         var target = arguments[0] || {}, i = 1, length = arguments.length, options;
-
+		
         for ( ; i < length; i++ ) {
             if ( (options = arguments[i]) != null ) {
                 
                 for ( var name in options ) {
                     var copy = options[ name ];
-
+					
                     if ( copy !== undefined ) {
                         target[ name ] = copy;
                     }
@@ -345,7 +356,7 @@ var utils = {
                 }
             }
         }
-
+		
         return target;      
     },
     
@@ -369,32 +380,37 @@ var utils = {
     newClass: function(/* [[superClass], mixin1, mixin2, ..] */ methods) {
         var klass = function() {
                 this.init.apply(this, arguments);
-            };
+            },
             
-        var inheritance, i, startFrom = 0, tmp, baseClasses = [], base, name, copy;
-            
-        if (arguments.length > 1) {
-            if (arguments[0].prototype) { // real inheritance
-                /** @ignore */
-                inheritance = function() {};
-                inheritance.prototype = arguments[0].prototype;
+			i, startFrom = 0, tmp, baseClasses = [], base, name, copy, $arguments = arguments, length;
+		
+        if ((length = $arguments.length) > 1) {
+            base = $arguments[0];
+            if (base.prototype) { // real inheritance
+                inheritance.prototype = base.prototype;
                 klass.prototype = new inheritance();
                 startFrom = 1;
                 baseClasses = [inheritance.prototype];
+                
+                // class method inheritance
+                for ( name in base ) {
+                    copy = base[ name ];
+                    if ( !base.hasOwnProperty(name) || copy === undefined || name == 'prototype' ) continue;
+                    klass[ name ] = copy;
+                }
             }
         }
-        for (i=startFrom; i < arguments.length; i++) {
-            base = tmp = arguments[i];
-            if (this.isFunction(tmp)) tmp = tmp.apply(tmp, baseClasses);
-            baseClasses.push(tmp);
-            
-            for ( name in base ) {
-                copy = base[ name ];
-                if ( !base.hasOwnProperty(name) || copy === undefined ) continue;
-                klass.prototype[ name ] = copy;
+
+        for (i=startFrom; i < length; i++) {
+            base = $arguments[i];
+            if (this.isFunction(base)) {
+                tmp = {};
+                base.apply(tmp, baseClasses);
+                base = tmp;
             }
+            baseClasses[ baseClasses.length ] = base;
             
-            // uki.extend(klass.prototype, base);
+            uki.extend(klass.prototype, base);
         };
         if (!klass.prototype.init) klass.prototype.init = function() {};
         return klass;
@@ -408,10 +424,12 @@ var utils = {
      */
     binarySearch: function (value, array) {
         var low = 0, high = array.length, mid;
+		
         while (low < high) {
             mid = (low + high) >> 1;
             array[mid] < value ? low = mid + 1 : high = mid;
         }
+        
         return low;
     },
     
@@ -454,7 +472,8 @@ var utils = {
      * @param {Array.<string>} props Property names
      */
     addProps: function(proto, props) {
-        uki.each(props, function() { proto[this] = uki.newProp('_' + this); });
+        for (var i =0, len = props.length; i<len; i++)
+			proto[ props[i] ] = uki.newProp('_' + props[i]);
     },
     
     toArray: function(arr) {
@@ -475,10 +494,26 @@ var utils = {
             }
             return this;
         };
+    },
+    
+    camalize: function(string) {
+        return string.replace(/[-_]\S/g, function(v) {
+            return v.substr(1).toUpperCase();
+        });
+    },
+    
+    dasherize: function(string) {
+        return string.replace(/[A-Z]/g, function(v) {
+            return '-' + v.toLowerCase();
+        });
     }
 };
 utils.extend(uki, utils);
-delete utils;/** 
+
+})();
+
+
+/** 
  * Geometry 
  * 
  * @namespace
@@ -1133,7 +1168,12 @@ Inset.create = function(a1, a2, a3, a4) {
     if (/\S+\s+\S+/.test(a1 + '')) return Inset.fromString(a1, a2);
     if (a3 === undefined) return new Inset(a1, a2);
     return new Inset(a1, a2, a3, a4);
-};/**
+};
+
+
+
+
+/**
  * Basic utils to work with the dom tree
  * @namespace
  * @author voloko
@@ -1236,6 +1276,7 @@ uki.dom = {
 uki.each(['createElement'], function(i, name) {
     uki[name] = uki.dom[name];
 });
+
 uki.dom.special = {};
 
 uki.dom.Event = function( domEvent ) {
@@ -1339,6 +1380,7 @@ uki.extend(uki.dom, /** @lends uki.dom */ {
     
     /** @ignore */
     handler: function( e ) {
+        
         e = e || root.event;
         
         var type = e.type,
@@ -1353,9 +1395,11 @@ uki.extend(uki.dom, /** @lends uki.dom */ {
         
         if (!id || !handlers || !handlers[type]) return;
         
+        uki.after.start();
         for (i=0, handlers = handlers[type]; i < handlers.length; i++) {
             handlers[i].call(this, e);
         };
+        uki.after.stop();
     },
     
     /**
@@ -1436,7 +1480,11 @@ if (root.attachEvent) {
             });
         });
     });
-};(function() {
+};
+
+
+
+(function() {
 /**
  * Drag and Drop support for uki
  * @namespace
@@ -1531,6 +1579,9 @@ function draggestureend (e) {
 }
 
 })();
+
+
+
 (function() {
     
     var dnd = uki.dom.dnd,
@@ -1876,7 +1927,10 @@ function draggestureend (e) {
             stopW3Cdrag(this);
         }
     }
-})();(function() {
+})();
+
+
+(function() {
     var self;
     
     if ( doc.documentElement["getBoundingClientRect"] ) {
@@ -2004,6 +2058,105 @@ function draggestureend (e) {
     	}
     });    
 })();
+
+
+
+uki.browser = new function() {
+    
+    var boxShadow;
+    this.cssBoxShadow = function() {
+        // Opera 10.5 consistently fails to redraw shadows. Easier to switch off
+        boxShadow = boxShadow || (root.opera ? 'unsupported' : checkPrefixes('box-shadow'));
+        return boxShadow;
+    };
+    
+    var borderRadius;
+    this.cssBorderRadius = function() {
+        borderRadius = borderRadius || checkPrefixes('border-radius');
+        return borderRadius;
+    };
+    
+    var userSelect;
+    this.cssUserSelect = function() {
+        userSelect = userSelect || checkPrefixes('user-select');
+        return userSelect;
+    };
+    
+    var linearGradient;
+    this.cssLinearGradient = function() {
+        linearGradient = linearGradient || initLinearGradient();
+        return linearGradient;
+    };
+    
+    var canvas;
+    this.canvas = function() {
+        if (canvas === undefined) canvas = !!uki.createElement('canvas').getContext;
+        return canvas;
+    };
+    
+    var filter;
+    this.cssFilter = function() {
+        if (filter === undefined) filter = typeof uki.createElement('div').style.filter != 'undefined';
+        return filter;
+    };
+    
+    function swap (obj, src, dst) {
+        var v = obj[src];
+        obj[src] = undefined;
+        obj[dst] = v;
+    }
+    this.css = function(css) {
+        if (!css) return '';
+        if (typeof css == 'string') {
+            return css.replace(/(^|[^-])(box-shadow|border-radius|user-select)/g, function(value) {
+                var p;
+                if ((p = value.indexOf('box-shadow')) > -1) return value.substr(0, p) + uki.browser.cssBoxShadow();
+                if ((p = value.indexOf('border-radius')) > -1) return value.substr(0, p) + uki.browser.cssBorderRadius();
+                if ((p = value.indexOf('user-select')) > -1) return value.substr(0, p) + uki.browser.cssUserSelect();
+            });
+        }
+        
+        uki.each(['boxShadow', 'borderRadius', 'userSelect'], function(k, v) {
+            if (css[v]) swap(css, v, uki.camalize( uki.browser[ uki.camalize('css-' + v) ]() ) );
+        });
+        return css;
+    };
+    
+    this.textStyles = 'font fontFamily fontWeight fontSize textDecoration textOverflow textAlign textShadow overflow color'.split(' ');
+    
+    function checkPrefixes (dashProp) {
+        var e = uki.createElement('div'),
+            style = e.style,
+            prefixes = ['', '-webkit-', '-moz-'];
+            
+        for (var i=0; i < prefixes.length; i++) {
+            if (style[ uki.camalize(prefixes[i] + dashProp) ] !== undefined) return prefixes[i] + dashProp;
+        };
+        return 'unsupported';
+    }
+    
+    function initLinearGradient () {
+        var e = uki.createElement(
+                'div', 
+                'background-image:-moz-linear-gradient(right,red,red);'+
+                'background-image:linear-gradient(right,red,red);'+
+                'background-image:-webkit-gradient(linear,0 0,100% 0,from(red),to(red))'
+            ),
+            style = e.style,
+            bgi = style.backgroundImage + '';
+            
+        if (bgi.indexOf('-moz-linear-gradient') > -1) {
+            return '-moz-linear-gradient';
+        } else if (bgi.indexOf('-webkit-gradient') > -1) {
+            return '-webkit-gradient';
+        } else if (bgi.indexOf('linear-gradient') > -1) {
+            return 'linear-gradient';
+        } else {
+            return 'unsupported';
+        }
+    }
+};
+
 uki.initNativeLayout = function() {
     if (uki.supportNativeLayout === undefined) {
         uki.dom.probe(
@@ -2020,6 +2173,70 @@ uki.initNativeLayout = function() {
 };
 
 // uki.supportNativeLayout = false;
+
+
+
+
+
+/**
+ * Executes callback at or after the end of processing.
+ * Example: execute flow layout after all child views were added.
+ * Runs either at the end of event handling or after a timeout.
+ * Each callback (by huid) is executed once
+ * @function
+ * @param {function()} callback
+ */
+uki.after = (function() {
+    var after = function(callback) {
+        callback.huid = callback.huid || uki.guid++;
+        if (after._bound[callback.huid]) return;
+        after._bound[callback.huid] = true;
+        after._queue.push(callback);
+        if (!after._running) after._startTimer();
+    };
+    
+    after._bound = {};
+    after._running = false;
+    after._timer = 0;
+    after._queue = [];
+    
+    after.start = function() {
+        after._clearTimer();
+        after._running++;
+    };
+    
+    after.stop = function() {
+        if (--after._running) return;
+        after._runCallbacks();
+    };
+    
+    
+    
+    after._runCallbacks = function() {
+        after._clearTimer();
+        var queue = after._queue;
+        after._queue = [];
+        after._bound = {};
+        for (var i=0; i < queue.length; i++) queue[i]();
+    };
+    
+    after._startTimer = function() {
+        if (after._timer) return;
+        after._timer = setTimeout(after._runCallbacks, 1);
+    };
+    
+    after._clearTimer = function() {
+        if (!after._timer) return;
+        clearTimeout(after._timer);
+        after._timer = 0;
+    };
+    
+    return after;
+})();
+
+
+
+
 /** @namespace */
 uki.view = {
     declare: function(/*name, baseClasses, implementation*/) {
@@ -2028,18 +2245,23 @@ uki.view = {
             klass = uki.newClass.apply(uki, args),
             parts = name.split('.'),
             obj   = root,
-            i, part;
+            i, part, l = parts.length - 1;
         
         klass.prototype.typeName = function() { return name; };
-        for ( i=0; i < parts.length - 1; i++ ) {
+		
+        for ( i= 0; i < l; i++ ) {
             part = parts[i];
             if (!obj[part]) obj[part] = {};
             obj = obj[part];
+			
         };
-        obj[parts[parts.length - 1]] = klass;
+		
+        obj[ parts[l] ] = klass;
         return klass;
     }
-};/**
+};
+
+/**
  * @class
  */
 uki.view.Observable = /** @lends uki.view.Observable.prototype */ {
@@ -2047,6 +2269,10 @@ uki.view.Observable = /** @lends uki.view.Observable.prototype */ {
     //     return null; // should implement
     // },
     
+    /**
+     * @param {String} name Event name
+     * @param {function()} callback
+     */
     bind: function(name, callback) {
         callback.huid = callback.huid || uki.guid++;
         uki.each(name.split(' '), function(i, name) {
@@ -2057,11 +2283,20 @@ uki.view.Observable = /** @lends uki.view.Observable.prototype */ {
     },
     
     unbind: function(name, callback) {
-        uki.each(name.split(' '), function(i, name) {
+        if (!this._observers) return;
+        var names;
+        if (name) {
+            names = name.split(' ');
+        } else {
+            names = [];
+            uki.each(this._observers, function(k, v) { names.push(k) });
+        }
+        uki.each(names, function(i, name) {
             this._observers[name] = !callback ? [] : uki.grep(this._observersFor(name, true), function(observer) {
                 return observer != callback && observer.huid != callback.huid;
             });
             if (this._observers[name].length == 0) {
+                this._observers[name] = undefined;
                 this._unbindFromDom(name);
             }
         }, this);
@@ -2082,7 +2317,7 @@ uki.view.Observable = /** @lends uki.view.Observable.prototype */ {
     },
     
     _bindToDom: function(name, target) {
-        if (!target && !this.dom) return;
+        if (!target && !this.dom) return false;
         this._domHander = this._domHander || uki.proxy(function(e) {
             e.source = this;
             this.trigger(e.type, e);
@@ -2103,7 +2338,9 @@ uki.view.Observable = /** @lends uki.view.Observable.prototype */ {
         if (!this._observers[name]) this._observers[name] = [];
         return this._observers[name];
     }
-};(function() {
+};
+
+(function() {
     var self = uki.Attachment = uki.newClass(uki.view.Observable, /** @lends uki.Attachment.prototype */ {
         /**
          * Attachment serves as a connection between a uki view and a dom container.
@@ -2185,9 +2422,12 @@ uki.view.Observable = /** @lends uki.view.Observable.prototype */ {
         /**
          * uki.view.Base api
          */
-        parent: function() {
-            return null;
-        },
+        parent: uki.F,
+        
+        /**
+         * uki.view.Base api
+         */
+        childResized: uki.F,
         
         /**
          * On window resize resizes and layout its child view
@@ -2248,10 +2488,15 @@ uki.view.Observable = /** @lends uki.view.Observable.prototype */ {
             uki.dom.bind(root, 'resize', function() {
                 if (!timeout) {
                     timeout = true;
-                    setTimeout(function() {
+                    setTimeout(function(i,len) {
+                        uki.after.start();
+                        
                         timeout = false;
-                        uki.each(self.instances, function() { this.layout(); });
-                    }, 1)
+						for (i=0,len=self.instances.length;i<len;i++)
+							self.instances[i].layout();
+							
+                        uki.after.stop();
+                    }, 1);
                 }
             });
         }
@@ -2272,6 +2517,13 @@ uki.view.Observable = /** @lends uki.view.Observable.prototype */ {
         return [self];
     };
 })();
+
+
+
+
+
+
+
 /**
  * Collection performs group operations on uki.view objects.
  * <p>Behaves much like result jQuery(dom nodes).
@@ -2301,8 +2553,7 @@ uki.fn = uki.Collection.prototype = new function() {
      * @returns {uki.view.Collection} self
      */
     this.each = function( callback ) {
-        uki.each( this, callback );
-        return this;
+        return uki.each( this, callback );        
     };
 
     /**
@@ -2332,12 +2583,12 @@ uki.fn = uki.Collection.prototype = new function() {
      */
     this.attr = function( name, value ) {
         if (value !== undefined) {
-            for (var i=0; i < this.length; i++) {
+            for (var i=this.length-1; i >= 0; i--) {
                 uki.attr( this[i], name, value );
             };
             return this;
         } else {
-            return this[0] ? uki.attr( this[0], name ) : '';
+            return this[0] ? uki.attr( this[0], name ) : "";
         }
     };
 
@@ -2380,11 +2631,15 @@ uki.fn = uki.Collection.prototype = new function() {
      * @returns {uki.view.Collection} self
      */
     this.append = function( views ) {
-        if (!this[0]) return this;
+        var target = this[0];
+        if (!target) return this;
+		
         views = views.length !== undefined ? views : [views];
-        for (var i=0; i < views.length; i++) {
-            this[0].appendChild(views[i]);
+		
+        for (var i = views.length-1; i >= 0; i--) {
+            target.appendChild(views[i]);
         };
+		
         return this;
     };
     
@@ -2393,7 +2648,8 @@ uki.fn = uki.Collection.prototype = new function() {
         this.each(function() {
             target.appendChild(this);
         });
-        return this;
+        return this;	
+        
     };
 
     /**#@-*/
@@ -2437,8 +2693,9 @@ uki.fn = uki.Collection.prototype = new function() {
     @name uki.Collection#focusable */
     /** @function
     @name uki.Collection#style */
-    uki.Collection.addAttrs('dom html text background value rect checked anchors childViews typeName id name visible disabled focusable style draggable textSelectable width height minX maxX minY maxY left top x y'.split(' '));
-
+    uki.Collection.addAttrs('dom html text background value rect checked anchors childViews typeName id name visible disabled focusable style draggable textSelectable width height minX maxX minY maxY left top x y contentsSize'.split(' '));
+    
+    
     /** @function
     @name uki.Collection#parent */
     /** @function
@@ -2450,7 +2707,7 @@ uki.fn = uki.Collection.prototype = new function() {
         ['next', 'nextView'],
         ['prev', 'prevView']
     ], function(i, desc) {
-        proto[desc[0]] = function() {
+        proto[ desc[0] ] = function() {
             return new uki.Collection( uki.unique( uki.map(this, desc[1]) ) );
         };
     });
@@ -2480,7 +2737,7 @@ uki.fn = uki.Collection.prototype = new function() {
     @name uki.Collection#toggle */
     uki.each('bind unbind trigger layout appendChild removeChild insertBefore addRow removeRow resizeToContents toggle'.split(' '), function(i, name) {
         proto[name] = function() { 
-            for (var i=0; i < this.length; i++) {
+            for (var i=this.length-1; i >=0; i--) {
                 this[i][name].apply(this[i], arguments);
             };
             return this;
@@ -2536,7 +2793,7 @@ uki.fn = uki.Collection.prototype = new function() {
     	    if (handler) {
         		this.bind(name, handler);
     	    } else {
-                for (var i=0; i < this.length; i++) {
+                for (var i=this.length-1; i >=0; i--) {
                     this[i][name] ? this[i][name]() : this[i].trigger(name);
                 };
     	    }
@@ -2544,6 +2801,9 @@ uki.fn = uki.Collection.prototype = new function() {
     	};
     });
 };
+
+
+
 
 (function() {
     
@@ -2562,8 +2822,9 @@ uki.fn = uki.Collection.prototype = new function() {
      * @returns {uki.view.Collection} collection of created elements
      */
     uki.build = function(ml) {
-        if (ml.length === undefined) ml = [ml];
-        return new uki.Collection(createMulti(ml));
+        
+        return new uki.Collection( createMulti( (ml.length === undefined) ? [ml] : ml ) );
+		
     };
     
     uki.viewNamespaces = ['uki.view.', ''];
@@ -2582,11 +2843,11 @@ uki.fn = uki.Collection.prototype = new function() {
         if (uki.isFunction(c)) {
             result = new c(mlRow.rect);
         } else if (typeof c === 'string') {
-            for (var i=0, ns = uki.viewNamespaces; i < ns.length; i++) {
+            for (var i=0, ns = uki.viewNamespaces, ns$length = ns.length; i < ns$length; i++) {
                 var parts = (ns[i] + c).split('.'),
                     obj = root;
                 
-                for (var j=0; obj && j < parts.length; j++) {
+                for (var j=0, parts$length = parts.length; obj && j < parts$length; j++) {
                     obj = obj[parts[j]];
                 };
                 if (obj) {
@@ -2613,6 +2874,10 @@ uki.fn = uki.Collection.prototype = new function() {
 
     uki.build.copyAttrs = copyAttrs;    
 })();
+
+
+
+
 /* Ideas and code parts borrowed from Sizzle (http://sizzlejs.com/) */
 (function() {
     /**#@+ @ignore */
@@ -2701,8 +2966,13 @@ uki.fn = uki.Collection.prototype = new function() {
     		},
     		
     		"~": function(context){
+    		    return uki.unique( flatten( uki.map(context, nextViews) ) );
     		}	        
 	    };
+	    
+	function nextViews (view) {
+	    return view.parent().childViews().slice((view._viewIndex || 0) + 1);
+	}
 	
 	function recChildren (comps) {
 	    return flatten(uki.map(comps, function(comp) {
@@ -2811,6 +3081,10 @@ uki.fn = uki.Collection.prototype = new function() {
     
     uki.find = self.find;
 })();
+
+
+
+
 /**
  * Creates image element from url
  *
@@ -2828,7 +3102,6 @@ uki.image = function(url, dataUrl, alphaUrl) {
     result.src = uki.imageSrc(url, dataUrl, alphaUrl);
     return result;
 };
-
 /**
  * Selects image src depending on browser
  *
@@ -2863,30 +3136,6 @@ uki.imageHTML = function(url, dataUrl, alphaUrl, html) {
     return '<img' + (html || '') + ' src="' + url + '" />';
 };
 
-/**
- * Loads given images, callbacks after all of them loads
- *
- * @param {Array.<Element>} images Images to load
- * @param {function()} callback
- */
-uki.image.load = function(images, callback) {
-    var imagesToLoad = images.length;
-    
-    uki.each(images, function(i, img) {
-        if (!img || img.width) {
-            if (!--imagesToLoad) callback();
-            return;
-        }
-
-        var handler = function() {
-                img.onload = img.onerror = img.onabort = null; // prevent memory leaks
-                if (!--imagesToLoad) callback();
-            };
-		img.onload  = handler;
-		img.onerror = handler;
-		img.onabort = handler;
-    });
-};
 
 /**
  * @type boolean
@@ -2897,12 +3146,16 @@ uki.image.dataUrlSupported = doc.createElement('canvas').toDataURL || (/MSIE (8)
  * @type boolean
  */
 uki.image.needAlphaFix = /MSIE 6/.test(ua);
-if(uki.image.needAlphaFix) doc.execCommand("BackgroundImageCache", false, true);
+if(uki.image.needAlphaFix) try { doc.execCommand("BackgroundImageCache", false, true); } catch(e){}
+
+
+
+
 (function() {
     var nullRegexp = /^\s*null\s*$/,
-        themeRegexp  = /theme\s*\(\s*([^)]*\s*)\)/,
-        rowsRegexp = /rows\s*\(\s*([^)]*\s*)\)/,
-        cssBoxRegexp = /cssBox\s*\(\s*([^)]*\s*)\)/;
+        themeRegexp  = /theme\s*\(\s*(.*\s*)\)/,
+        rowsRegexp = /rows\s*\(\s*(.*\s*)\)/,
+        cssBoxRegexp = /cssBox\s*\(\s*(.*\s*)\)/;
         
     /**
      * Transforms a bg string into a background object
@@ -2922,6 +3175,7 @@ if(uki.image.needAlphaFix) doc.execCommand("BackgroundImageCache", false, true);
             var match;
             /*jsl:ignore*/
             if ( match = bg.match(nullRegexp) ) return new self.Null();
+			
             if ( match = bg.match(themeRegexp) ) return uki.theme.background( match[1] );
             if ( match = bg.match(rowsRegexp) ) return new self.Rows( match[1].split(',')[0], match[1].split(/\s*,\s*/).slice(1) );
             if ( match = bg.match(cssBoxRegexp) ) return new self.CssBox( match[1] );
@@ -2931,6 +3185,9 @@ if(uki.image.needAlphaFix) doc.execCommand("BackgroundImageCache", false, true);
         return bg;
     };    
 })();
+
+
+
 /**
  * @class
  */
@@ -2938,7 +3195,11 @@ uki.background.Base = uki.background.Null = uki.newClass({
     init: uki.F,
     attachTo: uki.F,
     detach: uki.F
-});/**
+});
+
+
+
+/**
  * Adds a div with 9 sliced images in the corners, sides and center
  *
  * @class
@@ -3067,7 +3328,9 @@ uki.background.Sliced9 = uki.newClass(new function() {
                 settings.c, [LEFT + '-' + inset.left + PX, TOP + '-' + inset.top + PX, WIDTH + width + PX, HEIGHT + height + PX].join(';'), 'right -' + inset.top + PX
             );
         }
-        return uki.createElement('div', 'position:absolute;overflow:hidden;' + css, html.join(''));
+        var container = uki.createElement('div', 'position:absolute;overflow:hidden;' + css, html.join(''));
+        container.className = 'uki-background-Sliced9';
+        return container;
     };
     
     /** @ignore */
@@ -3081,7 +3344,8 @@ uki.background.Sliced9 = uki.newClass(new function() {
         this._comp = comp;
         
         this._container.style.visibility = 'visible';
-        this._comp.dom().appendChild(this._container);
+        this._comp.dom().insertBefore(this._container, this._comp.dom().firstChild);
+        // this._comp.dom().appendChild(this._container);
         
         if (!uki.supportNativeLayout) {
             this._layoutHandler = this._layoutHandler || uki.proxy(function(e) {
@@ -3140,7 +3404,11 @@ uki.background.Sliced9 = uki.newClass(new function() {
     };
     
     /**#@-*/    
-});/**
+});
+
+
+
+/**
  * Writes css properties to targets dom()
  *
  * @class
@@ -3150,6 +3418,7 @@ uki.background.Css = uki.newClass(new function() {
     /**#@+ @memberOf uki.background.Css.prototype */
     this.init = function(options) {
         this._options = typeof options == 'string' ? {background: options} : options;
+        this._options = uki.browser.css(this._options);
     };
     
     this.attachTo = function(comp) {
@@ -3173,7 +3442,11 @@ uki.background.Css = uki.newClass(new function() {
         
     };
     /**#@-*/
-});/**
+});
+
+
+
+/**
  * Adds a div with given cssText to dom()
  *
  * @class
@@ -3208,16 +3481,18 @@ uki.background.CssBox = uki.newClass(new function() {
 
         this._container = uki.createElement(
             'div', 
-            options + ';position:absolute;overflow:hidden;z-index:' + (ext.zIndex || '-1') + ';' + 
-            'left:' + inset.left + 'px;top:' + inset.top + 'px;right:' + inset.right + 'px;bottom:' + inset.bottom + 'px',
+            'position:absolute;overflow:hidden;z-index:' + (ext.zIndex || '-1') + ';' + 
+            'left:' + inset.left + 'px;top:' + inset.top + 'px;right:' + inset.right + 'px;bottom:' + inset.bottom + 'px;' +
+            uki.browser.css(options),
             ext.innerHTML
         );
+        this._container.className = 'uki-background-CssBox';
         this._attached = false;
     };
     
     this.attachTo = function(comp) {
         this._comp = comp;
-        this._comp.dom().appendChild(this._container);
+        this._comp.dom().insertBefore(this._container, this._comp.dom().firstChild);
 
         if (uki.supportNativeLayout) return;
         
@@ -3242,7 +3517,122 @@ uki.background.CssBox = uki.newClass(new function() {
     };
     
     /**#@-*/
-});/**
+});
+
+
+/**
+ * Adds a div with given cssText to dom()
+ *
+ * @class
+ */
+uki.background.LinearGradient = uki.newClass(uki.background.CssBox, new function() {
+    
+    var CANVAS_GRADIENT_SIZE = 200;
+    
+    /**
+     * @param options Object { startColor: '#FFFFFF', endColor: '#CCCCCC', horizontal: true, css: 'border: 1px solid #CCC' }
+     */
+    this.init = function(options) {
+        this._options = options;
+        var inset = this._inset = uki.geometry.Inset.create(this._options.inset) || new uki.geometry.Inset();
+        
+        this._container = this._createContainer();
+        var clone = this._container.cloneNode(true);
+        clone.style.cssText += ';width:100px;height:100px;';
+        uki.dom.probe(clone, uki.proxy(function(c) {
+            this._insetWidth = c.offsetWidth - 100 + inset.width();
+            this._insetHeight = c.offsetHeight - 100 + inset.height();
+        }, this));
+        this._container.style.cssText += ';left:' + inset.left + 'px;top:' + inset.top + 'px;right:' + inset.right + 'px;bottom:' + inset.bottom + 'px;';
+
+        this._attached = false;
+    };
+    
+    var urlCache = {};
+    function getGradientURL (startColor, endColor, horizontal, stops) {
+        var key = startColor + endColor + (horizontal ? 1 : 0) + uki.map(stops, function(stop) { return stop.pos + '-' + stop.color; });
+        if (!urlCache[key]) {
+        
+            var canvas = document.createElement('canvas');
+            canvas.width = canvas.height = CANVAS_GRADIENT_SIZE;
+        
+            var context = canvas.getContext('2d'),
+                gradient = context.createLinearGradient(0, 0, horizontal ? CANVAS_GRADIENT_SIZE : 0, horizontal ? 0 : CANVAS_GRADIENT_SIZE);
+
+            gradient.addColorStop(0, startColor);
+            gradient.addColorStop(1, endColor);
+            for (var i=0; i < stops.length; i++) {
+                gradient.addColorStop(stops[i].pos, stops[i].color);
+            };
+            context.fillStyle = gradient;
+            context.fillRect(0, 0, CANVAS_GRADIENT_SIZE, CANVAS_GRADIENT_SIZE);
+            urlCache[key] = canvas.toDataURL && canvas.toDataURL();
+        }
+        return urlCache[key];
+    }
+    
+    function mosFilter (horizontal, startColor, endColor) {
+        return 'filter:progid:DXImageTransform.Microsoft.gradient(gradientType=' + (horizontal ? '1' : '0') + ', startColorstr=#FF' + startColor.substr(1) + ', endColorstr=#FF' + endColor.substr(1) + ');';
+    }
+    
+    
+    this._createContainer = function() {
+        var startColor = this._options.startColor || '#FFFFFF',
+            endColor   = this._options.endColor   || '#CCCCCC',
+            horizontal = this._options.horizontal,
+            stops      = this._options.stops      || [],
+            css        = '',
+            i          = 0,
+            cssProp    = uki.browser.cssLinearGradient(),
+            url;
+            
+        if (cssProp == '-moz-linear-gradient' || cssProp == 'linear-gradient') {
+            css += 'background-image:' + cssProp + '(' + (horizontal ? 'left' : 'top') + ', ' + startColor;
+            for (;i<stops.length;i++) {
+                css += ',' + stops[i].color + ' ' + (stops[i].pos * 100) + '%';
+            }
+            css += ', ' + endColor + ');';
+        } else if (cssProp == '-webkit-gradient') {
+            css += 'background-image:' + cssProp + '(linear, 0% 0%, ' + (horizontal ? '100% 0%' : '0% 100%') + ', from(' + startColor + '), to(' + endColor + ')';
+            for (;i<stops.length;i++) {
+                css += ',color-stop(' + (stops[i].pos * 100) + '%,' + stops[i].color +')';
+            }
+            css += ');';
+        } else if (!uki.browser.canvas() && uki.browser.cssFilter() && stops.length == 0) {
+            css += mosFilter(horizontal, startColor, endColor);
+        }
+        
+        var container = uki.createElement('div', uki.browser.css(this._options.css) + ';position:absolute;overflow:hidden;z-index:' + (this._options.zIndex || '-1') + ';' + css, this._options.innerHTML);
+        container.className = 'uki-background-CssBox';
+        if (css) return container;
+        
+        if (uki.browser.canvas() && (url = getGradientURL(startColor, endColor, horizontal, stops))) {
+            var img = uki.createElement('img', 'position:absolute;left:0;top:0;width:100%;height:100%;z-index:0;');
+            img.src = url;
+            container.appendChild(img);
+        } else if (uki.browser.cssFilter() && stops.length > 0) {
+            stops.unshift({ pos: 0, color: startColor });
+            stops.push({ pos: 1, color: endColor });
+            var child;
+            for (;i<stops.length-1;i++) {
+                child = uki.createElement('div', 'position:absolute;z-index:-1' + 
+                    ';left:'   + (horizontal ? stops[i].pos * 100 - (i && 1) + '%' : '0') +
+                    ';top:'    + (horizontal ? '0' : stops[i].pos * 100 - (i && 1) + '%') +
+                    ';width:'  + (horizontal ? (stops[i+1].pos - stops[i].pos) * 100 + 1 + '%' : '100%') +
+                    ';height:' + (horizontal ? '100%' : (stops[i+1].pos - stops[i].pos) * 100 + 1 + '%') +
+                    ';' + mosFilter(horizontal, stops[i].color, stops[i+1].color)
+                );
+                container.appendChild(child);
+            }
+        }
+        return container;
+    };
+    
+    /**#@-*/
+});
+
+
+/**
  * Adds a div with colored rows to dom
  *
  * @class
@@ -3270,6 +3660,7 @@ uki.background.Rows = uki.newClass(new function() {
                 'div', 
                 'position:absolute;left:0;top:0;width:100%;z-index:-1'
             );
+            this._container.className = 'uki-background-Rows' ;
         }
         this._layoutHandler = this._layoutHandler || uki.proxy(function(e) { this.layout(e.rect, e.visibleRect); }, this);
         this._comp.dom().appendChild(this._container);
@@ -3316,7 +3707,10 @@ uki.background.Rows = uki.newClass(new function() {
         }
         return cache[key];
     }
-});/**
+});
+
+
+/**
  * @class
  */
 uki.background.Multi = uki.newClass({
@@ -3324,58 +3718,66 @@ uki.background.Multi = uki.newClass({
         this._bgs = Array.prototype.slice.call(arguments, 0);
     },
     attachTo: function(comp) {
-        for (var i=0; i < this._bgs.length; i++) {
+        for (var i=0, $this$_bgs$length = this._bgs.length; i < $this$_bgs$length; i++) {
             this._bgs[i].attachTo(comp);
         };
     },
     detach: function() {
-        for (var i=0; i < this._bgs.length; i++) {
+        for (var i=0, $this$_bgs$length = this._bgs.length; i < $this$_bgs$length; i++) {
             this._bgs[i].detach();
         };
     }
-});/**
+});
+
+
+/**
  * @namespace
  */
-uki.theme = {
+(function() {
+var self = uki.theme = {
     themes: [],
-    
-    register: function(theme) {
-        uki.theme.themes.push(theme);
+
+    register: function(theme, /* internal */ themes) {
+        (themes = self.themes)[ themes.length] = theme;
     },
-    
+
     background: function(name, params) {
-        return uki.theme._namedResource(name, 'background', params) || new uki.background.Null();
+        return self._namedResource(name, 'background', params) || new uki.background.Null();
     },
-    
+
     image: function(name, params) {
-        return uki.theme._namedResource(name, 'image', params) || new Image();
+        return self._namedResource(name, 'image', params) || new Image();
     },
-    
+
     imageSrc: function(name, params) {
-        return uki.theme._namedResource(name, 'imageSrc', params) || '';
+        return self._namedResource(name, 'imageSrc', params) || '';
     },
-    
+
     style: function(name, params) {
-        return uki.theme._namedResource(name, 'style', params) || '';
+        return self._namedResource(name, 'style', params) || '';
     },
-    
+
     dom: function(name, params) {
-        return uki.theme._namedResource(name, 'dom', params) || uki.createElement('div');
+        return self._namedResource(name, 'dom', params) || uki.createElement('div');
     },
-    
+
     template: function(name, params) {
-        return uki.theme._namedResource(name, 'template', params) || '';
+        return self._namedResource(name, 'template', params) || '';
     },
-    
-    _namedResource: function(name, type, params) {
-        for (var i = uki.theme.themes.length - 1; i >= 0; i--){
-            var result = uki.theme.themes[i][type](name, params);
-            if (result) return result;
+
+    _namedResource: function(name, type, params, i, result) {
+        for ( i = self.themes.length - 1 ; i >= 0; i--) {
+            if (result = (self.themes[i] [type](name, params)))
+				return result;
         };
         return null;
-        
     }
-};/**
+};
+})();
+
+
+
+/**
  * @class
  */
 uki.theme.Base = {
@@ -3411,8 +3813,11 @@ uki.theme.Base = {
     template: function(name, params) {
         return this.templates[name] && this.templates[name](params);
     }
-};/**
- * Simple and fast (2x–15x faster than regexp) html template
+};
+
+
+/**
+ * Simple and fast (2x-15x faster than regexp) html template
  * @example
  *   var t = new uki.theme.Template('<p class="${className}">${value}</p>')
  *   t.render({className: 'myClass', value: 'some html'})
@@ -3434,7 +3839,10 @@ uki.theme.Template.prototype.render = function(values) {
         this.parts[i*2+1] = values[names[i]] || '';
     };
     return this.parts.join('');
-};/**
+};
+
+
+/**
  * @namespace
  */
 uki.view.utils = new function() {
@@ -3497,7 +3905,10 @@ uki.view.utils = new function() {
     /**#@-*/ 
 };
 
-uki.extend(uki.view, uki.view.utils);/**
+uki.extend(uki.view, uki.view.utils);
+
+
+/**
  * @class
  */
 uki.view.Styleable = new function() {
@@ -3530,11 +3941,6 @@ uki.view.Styleable = new function() {
     //     };
     // });
     
-    var probe = uki.createElement('div').style;
-    uki.each(['userSelect', 'MozUserSelect', 'WebkitUserSelect'], function(i, name) {
-        if (typeof probe[name] == 'string') this._textSelectProp = name;
-    }, this);
-    
     /**
      * Sets whether text of the view can be selected.
      *
@@ -3544,17 +3950,15 @@ uki.view.Styleable = new function() {
      * @param {boolean=} state 
      * @returns {boolean|uki.view.Base} current textSelectable state of self
      */
-    this.textSelectable = function(state) {
-        if (state === undefined) return this._textSelectable;
+    this.textSelectable = uki.newProp('_textSelectable', function(state) {
         this._textSelectable = state;
-        if (this._textSelectProp) {
-            this._dom.style[this._textSelectProp] = state ? '' : this._textSelectProp == 'MozUserSelect' ? '-moz-none' : 'none';
+        if (uki.browser.cssUserSelect() != 'unsupported') {
+            this._dom.style[uki.camalize(uki.browser.cssUserSelect())] = (state ? '' : uki.browser.cssUserSelect() == '-moz-user-select' ? '-moz-none' : 'none');
         } else {
             uki.dom[state ? 'unbind' : 'bind'](this.dom(), 'selectstart', uki.dom.preventDefaultHandler);
         }
         this._dom.style.cursor = state ? '' : 'default';
-        return this;
-    };
+    });
     
     this.draggable = function(state) {
         if (state === undefined) return this._dom.getAttribute('draggable');
@@ -3564,8 +3968,13 @@ uki.view.Styleable = new function() {
     };
     
     /**#@-*/ 
-};/**
- * @class
+};
+
+
+
+
+/**
+ * @interface
  */
 uki.view.Focusable = new function() {/** @lends uki.view.Focusable.prototype */ 
     
@@ -3608,21 +4017,25 @@ uki.view.Focusable = new function() {/** @lends uki.view.Focusable.prototype */
         
         if (!preCreatedFocusTarget) {
             this._focusTarget = uki.createElement('input', 'position:absolute;left:-9999px;top:0;width:1px;height:1px;');
+            this._focusTarget.className = 'uki-view-Focusable';
             this.dom().appendChild(this._focusTarget);
         }
         this._hasFocus = false;
         this._firstFocus = true;
             
         uki.dom.bind(this._focusTarget, 'focus', uki.proxy(function(e) {
+            this._stopWatingForBlur();
             if (!this._hasFocus) this._focus(e);
         }, this));
         
         uki.dom.bind(this._focusTarget, 'blur', uki.proxy(function(e) {
             if (this._hasFocus) {
                 this._hasFocus = false;
-                setTimeout(uki.proxy(function() { // wait for mousedown refocusing
-                    if (!this._hasFocus) this._blur();
-                }, this), 1);
+                this._waitingForBlur = 
+                    setTimeout(uki.proxy(function() { // wait for mousedown refocusing
+                        this._waitingForBlur = false;
+                        if (!this._hasFocus) this._blur();
+                    }, this), 1);
             }
         }, this));
         
@@ -3641,8 +4054,17 @@ uki.view.Focusable = new function() {/** @lends uki.view.Focusable.prototype */
         this._hasFocus = false;
     }
     
+    this._stopWatingForBlur = function() {
+        if (this._waitingForBlur) {
+            clearTimeout(this._waitingForBlur);
+            this._waitingForBlur = false;
+            this._hasFocus = true;
+        }
+    };
+    
     this.focus = function() {
         if (this._focusable && !this._disabled) {
+            this._stopWatingForBlur();
             if (!this._hasFocus) this._focus();
             var target = this._focusTarget;
             setTimeout(function() {
@@ -3673,7 +4095,16 @@ uki.view.Focusable = new function() {/** @lends uki.view.Focusable.prototype */
     }
     
 
-};var ANCHOR_TOP    = 1,
+};
+
+
+
+
+
+
+
+
+var ANCHOR_TOP    = 1,
     ANCHOR_RIGHT  = 2,
     ANCHOR_BOTTOM = 4,
     ANCHOR_LEFT   = 8,
@@ -3940,6 +4371,10 @@ uki.view.declare('uki.view.Base', uki.view.Observable, uki.view.Styleable, funct
         this._firstLayout = false;
     };
     
+    this.layoutIfNeeded = function() {
+        if (this._needsLayout && this.visible()) this.layout();
+    };
+    
     
     /**
      * @function uki.view.Base#minSize
@@ -3982,6 +4417,13 @@ uki.view.declare('uki.view.Base', uki.view.Observable, uki.view.Styleable, funct
         if (this._anchors & ANCHOR_TOP ^ ANCHOR_TOP) newRect.y += dY;
         if (this._anchors & ANCHOR_HEIGHT) newRect.height += dY;
         this.rect(newRect);
+    };
+    
+    /**
+     * Called when child changes it's size
+     */
+    this.childResized = function(child) {
+        // do nothing, extend in subviews
     };
     
     /**
@@ -4108,6 +4550,11 @@ uki.view.declare('uki.view.Base', uki.view.Observable, uki.view.Styleable, funct
      */
     this._createDom = function() {
         this._dom = uki.createElement('div', this.defaultCss);
+        this._initClassName();
+    };
+    
+    this._initClassName = function() {
+        this._dom.className = this.typeName().replace(/\./g, '-');
     };
     
     /**
@@ -4144,6 +4591,9 @@ uki.view.declare('uki.view.Base', uki.view.Observable, uki.view.Styleable, funct
     
     /**#@-*/
 });
+
+
+
 /**
  * @class
  * @augments uki.view.Base
@@ -4151,6 +4601,8 @@ uki.view.declare('uki.view.Base', uki.view.Observable, uki.view.Styleable, funct
  */
 uki.view.declare('uki.view.Container', uki.view.Base, function(Base) {
     /**#@+ @memberOf uki.view.Container# */
+    
+    this._inset = new Inset();
     
     /** @private */
     this._setup = function() {
@@ -4169,11 +4621,11 @@ uki.view.declare('uki.view.Container', uki.view.Base, function(Base) {
     }
     
     this.contentsWidth = function() {
-        return maxProp(this, 'maxX');
+        return maxProp(this, 'maxX') + this.inset().right;
     };
     
     this.contentsHeight = function() {
-        return maxProp(this, 'maxY');
+        return maxProp(this, 'maxY') + this.inset().bottom;
     };
     
     this.contentsSize = function() {
@@ -4209,6 +4661,7 @@ uki.view.declare('uki.view.Container', uki.view.Base, function(Base) {
             this._childViews[i]._viewIndex--;
         };
         this._childViews = uki.grep(this._childViews, function(elem) { return elem != child; });
+        this._contentChanged();
     };
     
     /**
@@ -4219,6 +4672,7 @@ uki.view.declare('uki.view.Container', uki.view.Base, function(Base) {
         this._childViews.push(child);
         child.parent(this);
         this.domForChild(child).appendChild(child.dom());
+        this._contentChanged();
     };
     
     /**
@@ -4235,6 +4689,7 @@ uki.view.declare('uki.view.Container', uki.view.Base, function(Base) {
         this._childViews.splice(beforeChild._viewIndex-1, 0, child);
         child.parent(this);
         this.domForChild(child).insertBefore(child.dom(), beforeChild.dom());
+        this._contentChanged();
     };
     
     /**
@@ -4245,8 +4700,15 @@ uki.view.declare('uki.view.Container', uki.view.Base, function(Base) {
         return this._dom;
     };
     
+    this.inset = uki.newProp('_inset', function(v) {
+        this._inset = Inset.create(v);
+    });
     
     /** @private */
+    this._contentChanged = function() {
+        // called on every insertBefore, appendChild, removeChild
+    };
+    
     this._layoutDom = function(rect) {
         Base._layoutDom.call(this, rect);
         this._layoutChildViews(rect);
@@ -4255,9 +4717,7 @@ uki.view.declare('uki.view.Container', uki.view.Base, function(Base) {
     /** @private */
     this._layoutChildViews = function() {
         for (var i=0, childViews = this.childViews(); i < childViews.length; i++) {
-            if (childViews[i]._needsLayout && childViews[i].visible()) {
-                childViews[i].layout(this._rect);
-            }
+            childViews[i].layoutIfNeeded();
         };
     };
     
@@ -4296,16 +4756,52 @@ uki.view.declare('uki.view.Container', uki.view.Base, function(Base) {
     };
     
    /**#@-*/ 
-});uki.view.declare('uki.view.Box', uki.view.Container, {});
+});
+/**
+ * Basic container view
+ *
+ *
+ * @author voloko
+ * @name uki.view.Box
+ * @class
+ * @extends uki.view.Container
+ */
+uki.view.declare('uki.view.Box', uki.view.Container, {});
+
+/**
+ * Image
+ *
+ * @author voloko
+ * @name uki.view.Image
+ * @class
+ * @extends uki.view.Base
+ */
 uki.view.declare('uki.view.Image', uki.view.Base, function() {
     this.typeName = function() { return 'uki.view.Image'; };
     
+    /**
+     * @function
+     * @name uki.view.Image#src
+     */
     uki.delegateProp(this, 'src', '_dom');
     
     this._createDom = function() {
-        this._dom = uki.createElement('img', this.defaultCss)
+        this._dom = uki.createElement('img', this.defaultCss);
+        this._initClassName();
     };
 });
+
+
+
+/**
+ * Label View
+ * Contains any html
+ * 
+ * @author voloko
+ * @name uki.view.Label
+ * @class
+ * @extends uki.view.Base
+ */
 uki.view.declare('uki.view.Label', uki.view.Base, function(Base) {
 
     this._setup = function() {
@@ -4319,11 +4815,13 @@ uki.view.declare('uki.view.Label', uki.view.Base, function(Base) {
     };
     
     this._style = function(name, value) {
-        if (value !== undefined && 'font fontFamily fontWeight fontSize textDecoration textOverflow textAlign overflow color'.indexOf(name) != -1) {
+        if (value !== undefined && uki.inArray(name, uki.browser.textStyles) != -1) {
             this._label.style[name] = value;
         }
         return Base._style.call(this, name, value);
     };
+    
+    this.adaptToContents = uki.newProp('_adaptToContents');
     
     this.textSelectable = function(state) {
         if (state !== undefined && !this._textSelectProp) {
@@ -4341,29 +4839,53 @@ uki.view.declare('uki.view.Label', uki.view.Base, function(Base) {
         uki.dom.probe(clone, function() {
             size = new Size(clone.offsetWidth + inset.width(), clone.offsetHeight + inset.height());
         });
-        
         return size;
     };
     
+    /**
+     * Read/write escaped html contents 
+     * @function
+     * @name uki.view.Label#text
+     */
     this.text = function(text) {
         return text === undefined ? this.html() : this.html(uki.escapeHTML(text));
     };
     
+    /**
+     * Read/write html contents
+     * @function
+     * @name uki.view.Label#html
+     */
     this.html = function(html) {
         if (html === undefined) return this._label.innerHTML;
         this._label.innerHTML = html;
         return this;
     };
     
+    /**
+     * Insets between text and view borders
+     * @function
+     * @name uki.view.Label#inset
+     */
     this.inset = uki.newProp('_inset', function(inset) {
         this._inset = Inset.create(inset);
     });
 
+    /**
+     * Whether label have inline scrollbars on not
+     * @function
+     * @name uki.view.Label#scrollable
+     */
     this.scrollable = uki.newProp('_scrollable', function(state) {
         this._scrollable = state;
         this._label.style.overflow = state ? 'auto' : 'hidden';
     });
     
+    /**
+     * Whether can have multiline lines or not
+     * @function
+     * @name uki.view.Label#multiline
+     */
     this.multiline = uki.newProp('_multiline', function(state) {
         this._multiline = state;
         this._label.style.whiteSpace = state ? '' : 'nowrap';
@@ -4398,15 +4920,10 @@ uki.view.declare('uki.view.Label', uki.view.Base, function(Base) {
     };
     
     this._layoutDom = function() {
-        Base._layoutDom.apply(this, arguments);
-        
-        var inset = this._inset;
-        if (!this.multiline()) {
-            var fz = parseInt(this.style('fontSize'), 10) || 12;
-            this._label.style.lineHeight = (this._rect.height - inset.top - inset.bottom) + 'px';
-            // this._label.style.paddingTop = MAX(0, this._rect.height/2 - fz/2) + 'px';
-        }
-        var l;
+        var inset = this._inset,
+            l,
+            a = this._anchors,
+            watchField = '', watchValue;
         
         if (uki.supportNativeLayout) {
             l = {
@@ -4423,12 +4940,55 @@ uki.view.declare('uki.view.Label', uki.view.Base, function(Base) {
                 height: this._rect.height - inset.height()
             };
         }
+        
+        if (!(a & ANCHOR_BOTTOM)) {
+            l.height = l.bottom = undefined;
+            watchField = 'offsetHeight';
+        } else if (!(a & ANCHOR_TOP)) {
+            l.height = l.bottom = undefined;
+            watchField = 'offsetHeight';
+        } else if (!(a & ANCHOR_RIGHT)) {
+            l.right = l.width = undefined;
+            watchField = 'offsetWidth';
+        } else if (!(a & ANCHOR_LEFT)) {
+            l.left = l.width = undefined;
+            watchField = 'offsetWidth';
+        }
+        
+        Base._layoutDom.apply(this, arguments);
+        
+        if (!this.multiline()) {
+            var fz = parseInt(this.style('fontSize'), 10) || 12;
+            this._label.style.lineHeight = (this._rect.height - inset.top - inset.bottom) + 'px';
+            // this._label.style.paddingTop = MAX(0, this._rect.height/2 - fz/2) + 'px';
+        }
         this._lastLabelLayout = uki.dom.layout(this._label.style, l, this._lastLabelLayout);
+        
+        if (this.adaptToContents() && watchField) {
+            watchValue = this._label[watchField];
+            if (watchValue != this._lastWatchValue && this.parent()) {
+                this.resizeToContents(watchField == 'offsetWidth' ? 'width' : 'height');
+                this.parent().childResized(this);
+            }
+            this._lastWatchValue = watchValue;
+        }
     };
     
 });
+
+
+/**
+ * Button view
+ *
+ *
+ * @author voloko
+ * @name uki.view.Button
+ * @class
+ * @extends uki.view.Label
+ * @implements uki.view.Focusable
+ */
 uki.view.declare('uki.view.Button', uki.view.Label, uki.view.Focusable, function(Base, Focusable) {
-    var proto = this;
+    /** @lends uki.view.Button.prototype */
     
     this._backgroundPrefix = 'button-';
     
@@ -4440,8 +5000,32 @@ uki.view.declare('uki.view.Button', uki.view.Label, uki.view.Focusable, function
         this.defaultCss += "cursor:default;-moz-user-select:none;-webkit-user-select:none;" + uki.theme.style('button');
     };
     
+    /**
+     * @function
+     * @name uki.view.Button#backgroundPrefix
+     */
     uki.addProps(this, ['backgroundPrefix']);
     
+    /**
+     * @function
+     * @name uki.view.Button#"normal-background"
+     */
+    /**
+     * @function
+     * @name uki.view.Button#"hover-background"
+     */
+    /**
+     * @function
+     * @name uki.view.Button#"down-background"
+     */
+    /**
+     * @function
+     * @name uki.view.Button#"focus-background"
+     */
+     /**
+      * @function
+      * @name uki.view.Button#"disabled-background"
+      */
     uki.each(['normal', 'hover', 'down', 'focus', 'disabled'], function(i, name) {
         var property = name + '-background';
         this[property] = function(bg) {
@@ -4475,6 +5059,7 @@ uki.view.declare('uki.view.Button', uki.view.Label, uki.view.Focusable, function
     this._createDom = function() {
         // dom
         this._dom = uki.createElement('div', this.defaultCss);
+        this._initClassName();
         this._label = uki.createElement('div', this.defaultCss); // text-shadow:0 1px 0px rgba(255,255,255,0.8);
         this._dom.appendChild(this._label);
         
@@ -4548,10 +5133,31 @@ uki.view.declare('uki.view.Button', uki.view.Label, uki.view.Focusable, function
     this._bindToDom = function(name) {
         return uki.view.Focusable._bindToDom.call(this, name) || uki.view.Label.prototype._bindToDom.call(this, name);
     };
-});uki.view.declare('uki.view.Checkbox', uki.view.Button, function(Base) {
+});
+/**
+ * Checkbox
+ *
+ * @author voloko
+ * @name uki.view.Checkbox
+ * @class
+ * @extends uki.view.Button
+ */
+uki.view.declare('uki.view.Checkbox', uki.view.Button, function(Base) {
     
     this._backgroundPrefix = 'checkbox-';
     
+    /**
+     * @function
+     * @name uki.view.Button#"checked-normal-background"
+     */
+    /**
+     * @function
+     * @name uki.view.Button#"checked-hover-background"
+     */
+    /**
+     * @function
+     * @name uki.view.Button#"checked-disabled-background"
+     */
     uki.each(['checked-normal', 'checked-hover', 'checked-disabled'], function(i, name) {
         var property = name + '-background';
         this[property] = function(bg) {
@@ -4572,38 +5178,61 @@ uki.view.declare('uki.view.Button', uki.view.Label, uki.view.Focusable, function
         this._backgroundByName(name);
     };
     
+    /**
+     * @function
+     * @name uki.view.Button#value
+     */
+     /**
+      * @function
+      * @name uki.view.Button#checked
+      */
     this.value = this.checked = uki.newProp('_checked', function(state) {
-        var changed = this._checked != !!state;
         this._checked = !!state;
         this._updateBg();
-        if (changed) this.trigger('change', {checked: this._checked, source: this});
     });
     
     this._mouseup = function(e) {
         if (!this._down) return;
         this._down = false;
-        if (!this._disabled) this.checked(!this.checked())
+        if (!this._disabled) {
+            this.checked(!this.checked())
+            this.trigger('change', {checked: this._checked, source: this});
+        }
     };
     
 });
+
+
+
 (function() {
+    /**
+     * Radio button
+     *
+     * @author voloko
+     * @name uki.view.Radio
+     * @class
+     * @extends uki.view.Checkbox
+     */
     var manager = uki.view.declare('uki.view.Radio', uki.view.Checkbox, function(base) {
         
         this._backgroundPrefix = 'radio-';
         
+        /**
+        * @function
+        * @param {String} group
+        * @name uki.view.Popup#hide
+        */
         this.group = uki.newProp('_group', function(g) {
             manager.unregisterGroup(this);
             this._group = g;
             manager.registerGroup(this);
-            manager.clearGroup(this);
+            if (this.checked()) manager.clearGroup(this);
         });
 
         this.value = this.checked = uki.newProp('_checked', function(state) {
-            var changed = this._checked != !!state;
             this._checked = !!state;
             if (state) manager.clearGroup(this);
             this._updateBg();
-            if (changed) this.trigger('change', {checked: this._checked, source: this});
         });
 
         this._mouseup = function() {
@@ -4611,6 +5240,7 @@ uki.view.declare('uki.view.Button', uki.view.Label, uki.view.Focusable, function
             this._down = false;
             if (!this._checked && !this._disabled) {
                 this.checked(!this._checked);
+                this.trigger('change', { checked: this._checked, source: this });
             }
         }
     });
@@ -4637,47 +5267,71 @@ uki.view.declare('uki.view.Button', uki.view.Label, uki.view.Focusable, function
     manager.clearGroup = function(radio) {
         uki.each(manager.groups[radio.group()] || [], function(i, registered) {
             if (registered == radio) return;
-            if (registered.checked()) registered.checked(false);
+            if (registered.checked()) {
+                registered.checked(false);
+                this.trigger('change', { checked: false, source: registered });
+            }
         });
     };    
     
-})();uki.view.declare('uki.view.TextField', uki.view.Base, uki.view.Focusable, function(Base, Focusable) {
+})();
+/**
+* Editable Text Field
+*
+* @author voloko
+* @name uki.view.TextField
+* @class
+* @extends uki.view.Base
+* @implements uki.view.Focusable
+*/
+uki.view.declare('uki.view.TextField', uki.view.Base, uki.view.Focusable, function(Base, Focusable) {
     var emptyInputHeight = {};
 
-    function getEmptyInputHeight (fontSize) {
-        if (!emptyInputHeight[fontSize]) {
-            var node = uki.createElement('input', Base.defaultCss + "border:none;padding:0;border:0;overflow:hidden;font-size:"+fontSize+";left:-999em;top:0");
+    function getEmptyInputHeight (css) {
+        if (!emptyInputHeight[css]) {
+            var node = uki.createElement('input', Base.defaultCss + "border:none;padding:0;border:0;margin:0;overflow:hidden;left:-999em;top:0;line-height:1;" + css);
             uki.dom.probe(
                 node,
                 function(probe) {
-                    emptyInputHeight[fontSize] = probe.offsetHeight;
+                    emptyInputHeight[css] = probe.offsetHeight;
                 }
             );
         }
-        return emptyInputHeight[fontSize];
+        return emptyInputHeight[css];
     }
 
     function nativePlaceholder (node) {
         return typeof node.placeholder == 'string';
     }
+    
+    this._backgroundPrefix = '';
+    this._tagName = 'input';
+    this._type = 'text';
 
     this._setup = function() {
         Base._setup.apply(this, arguments);
         uki.extend(this, {
             _value: '',
             _multiline: false,
-            _placeholder: '',
-            _backgroundPrefix: '',
-            _tagName: 'input',
-            _type: 'text'
+            _placeholder: ''
         });
-        this.defaultCss += "margin:0;border:none;outline:none;padding:0;left:2px;top:0;z-index:100;resize:none;background: url(" + uki.theme.imageSrc('x') + ");" + uki.theme.style('input');
+        this.defaultCss += "margin:0;border:none;outline:none;padding:0;left:2px;top:0;z-index:100;-moz-resize:none;resize:none;background: url(" + uki.theme.imageSrc('x') + ");" + uki.theme.style('input');
     };
     
     this._updateBg = function() {
         this._input.style.color = this._disabled ? '#999' : '#000';
     };
     
+    /**
+    * @function
+    * @name uki.view.TextField#name
+    */
+    uki.delegateProp(this, 'name', '_input');
+    
+    /**
+    * @function
+    * @name uki.view.TextField#value
+    */
     this.value = function(value) {
         if (value === undefined) return this._input.value;
 
@@ -4686,6 +5340,11 @@ uki.view.declare('uki.view.Button', uki.view.Label, uki.view.Focusable, function
         return this;
     };
     
+    /**
+    * Cross browser placeholder implementation
+    * @function
+    * @name uki.view.TextField#placeholder
+    */
     this.placeholder = uki.newProp('_placeholder', function(v) {
         this._placeholder = v;
         if (!this._multiline && nativePlaceholder(this._input)) {
@@ -4697,7 +5356,7 @@ uki.view.declare('uki.view.Button', uki.view.Label, uki.view.Focusable, function
                 this._dom.appendChild(this._placeholderDom);
                 this._updatePlaceholderVis();
                 uki.each(['fontSize', 'fontFamily', 'fontWeight'], function(i, name) {
-                    this._placeholderDom.style[name] = this.style(name);
+                    this._placeholderDom.style[name] = this._input.style[name];
                 }, this);
                 
                 uki.dom.bind(this._placeholderDom, 'mousedown', uki.proxy(function(e) { 
@@ -4711,20 +5370,31 @@ uki.view.declare('uki.view.Button', uki.view.Label, uki.view.Focusable, function
     });
 
     this._style = function(name, value) {
-        if (value === undefined) return this._input.style[name];
-        this._input.style[name] = value;
-        if (this._placeholderDom) this._placeholderDom.style[name] = value;
-        return this;
+        if (uki.inArray(name, uki.browser.textStyles) != -1) {
+            if (value === undefined) return this._input.style[name];
+            this._input.style[name] = value;
+            if (this._placeholderDom) this._placeholderDom.style[name] = value;
+        }
+        return Base._style.call(this, name, value);
     };
 
+    /**
+    * @function
+    * @name uki.view.TextField#backgroundPrefix
+    */
     uki.addProps(this, ['backgroundPrefix']);
     
+    /**
+    * @function
+    * @name uki.view.TextField#defaultBackground
+    */
     this.defaultBackground = function() {
         return uki.theme.background(this._backgroundPrefix + 'input');
     };
     
     this._createDom = function() {
-        this._dom = uki.createElement('div', Base.defaultCss + ';cursor:text;overflow:visible');
+        this._dom = uki.createElement('div', Base.defaultCss + ';cursor:text;overflow:visible;');
+        this._initClassName();
         this._input = uki.createElement(this._tagName, this.defaultCss + (this._multiline ? '' : ';overflow:hidden;'));
         
         this._input.value = this._value;
@@ -4751,11 +5421,11 @@ uki.view.declare('uki.view.Button', uki.view.Label, uki.view.Focusable, function
             this._input.style.top = 2 + PX;
             margin = '2px 0';
         } else {
-            var o = (this._rect.height - getEmptyInputHeight(this.style('fontSize'))) / 2;
+            var o = (this._rect.height - getEmptyInputHeight( 'font-size:' + this.style('fontSize') + ';font-family:' + this.style('fontFamily') )) / 2;
             margin = CEIL(o) + 'px 0 ' + FLOOR(o) + 'px 0';
-            this._input.style.margin = margin;
+            this._input.style.padding = margin;
         }
-        if (this._placeholderDom) this._placeholderDom.style.margin = margin;
+        if (this._placeholderDom) this._placeholderDom.style.padding = margin;
     };
     
     this._updatePlaceholderVis = function() {
@@ -4780,21 +5450,40 @@ uki.view.declare('uki.view.Button', uki.view.Label, uki.view.Focusable, function
     };
 });
 
+/**
+* Multiline Editable Text Field (textarea)
+*
+* @author voloko
+* @name uki.view.MultilineTextField
+* @class
+* @extends uki.view.TextField
+*/
 uki.view.declare('uki.view.MultilineTextField', uki.view.TextField, function(Base) {
+    this._tagName = 'textarea';
+    this._type = '';
+    
     this._setup = function() {
         Base._setup.call(this);
-        this._tagName = 'textarea';
-        this._type = '';
         this._multiline = true;
     };
 });
 
+/**
+* Password Field
+*
+* @author voloko
+* @name uki.view.PasswordTextField
+* @class
+* @extends uki.view.TextField
+*/
 uki.view.declare('uki.view.PasswordTextField', uki.view.TextField, function(Base) {
     this._setup = function() {
         Base._setup.call(this);
         this._type = 'password';
     };
 });
+
+uki.Collection.addAttrs(['placeholder']);
 
 (function() {
     var scrollWidth, widthIncludesScrollBar;
@@ -4817,39 +5506,77 @@ uki.view.declare('uki.view.PasswordTextField', uki.view.TextField, function(Base
     }
         
     /**
-     * Scroll pane. Pane with scrollbars with content overflowing the borders.
-     * Works consistently across all supported browsers.
-     */
+    * Scroll pane. 
+    * Pane with scrollbars with content overflowing the borders.
+    * Works consistently across all supported browsers.
+    *
+    * @author voloko
+    * @name uki.view.ScrollPane
+    * @class
+    * @extends uki.view.Container
+    */
     uki.view.declare('uki.view.ScrollPane', uki.view.Container, function(Base) {
-        this.typeName = function() {
-            return 'uki.view.ScrollPane';
-        };
-    
+        uki.extend(this, {
+            _scrollableY: true,
+            _scrollableX: false,
+            _scrollY: false,
+            _scrollX: false,
+            _sbY: false,
+            _sbX: false
+        });
+        
         this._setup = function() {
             Base._setup.call(this);
 
-            uki.extend(this, {
-                _clientRect: this.rect().clone(), // rect with scroll bars excluded
-                _rectForChild: this.rect().clone(),
-                _scrollableV: true,
-                _scrollableH: false,
-                _scrollV: false,
-                _scrollH: false,
-                _sbV: false,
-                _sbH: false
-            });
+            this._clientRect = this.rect().clone();
+            this._rectForChild = this.rect().clone();
         };
     
-        uki.addProps(this, ['scrollableV', 'scrollableH', 'scrollH', 'scrollV']);
+        /**
+        * @function
+        * @name uki.view.ScrollPane#scrollableY
+        */
+        /**
+        * @function
+        * @name uki.view.ScrollPane#scrollableX
+        */
+        /**
+        * @function
+        * @name uki.view.ScrollPane#scrollX
+        */
+        /**
+        * @function
+        * @name uki.view.ScrollPane#scrollY
+        */
+        uki.addProps(this, ['scrollableY', 'scrollableX', 'scrollX', 'scrollY']);
+        this.scrollV = this.scrollY;
+        this.scrollH = this.scrollX;
+        
+        this.scrollableV = this.scrollableY;
+        this.scrollableH = this.scrollableX;
     
         this.rectForChild = function() { return this._rectForChild; };
         this.clientRect = function() { return this._clientRect; };
     
+        /**
+        * @function
+        * @param {Number} dx
+        * @param {Number} dy
+        * @name uki.view.ScrollPane#scroll
+        */
         this.scroll = function(dx, dy) {
-            if (dx) this.scrollTop(this.scrollLeft() + dy);
+            if (dx) this.scrollLeft(this.scrollLeft() + dx);
             if (dy) this.scrollTop(this.scrollTop() + dy);
         };
     
+        /**
+        * @function
+        * @name uki.view.ScrollPane#scrollTop
+        */
+        /**
+        * @function
+        * @name uki.view.ScrollPane#scrollLeft
+        */
         uki.each(['scrollTop', 'scrollLeft'], function(i, name) {
             this[name] = function(v) {
                 if (v == undefined) return this._dom[name];
@@ -4859,6 +5586,11 @@ uki.view.declare('uki.view.PasswordTextField', uki.view.TextField, function(Base
             };
         }, this);
     
+        /**
+        * @function
+        * @return {uki.geometry.Rect}
+        * @name uki.view.ScrollPane#visibleRect
+        */
         this.visibleRect = function() {
             var tmpRect = this._clientRect.clone();
             tmpRect.x = this.rect().x + this.scrollLeft();
@@ -4889,15 +5621,15 @@ uki.view.declare('uki.view.PasswordTextField', uki.view.TextField, function(Base
 
             var cw = this.contentsWidth(),
                 ch = this.contentsHeight(),
-                sh = this._scrollableH ? cw > this._rect.width : false,
-                sv = this._scrollableV ? ch > this._rect.height : false;
+                sx = this._scrollableX ? cw > this._rect.width : false,
+                sy = this._scrollableY ? ch > this._rect.height : false;
             
-            this._sbH = sh || this._scrollH;
-            this._sbV = sv || this._scrollV;
-            this._clientRect = new Rect( this._rect.width +  (sv ? -1 : 0) * scrollWidth,
-                                         this._rect.height + (sh ? -1 : 0) * scrollWidth );
-            this._rectForChild = new Rect( this._rect.width +  (sv && !widthIncludesScrollBar ? -1 : 0) * scrollWidth,
-                                           this._rect.height + (sh && !widthIncludesScrollBar ? -1 : 0) * scrollWidth );
+            this._sbX = sx || this._scrollX;
+            this._sbY = sy || this._scrollY;
+            this._clientRect = new Rect( this._rect.width +  (sy ? -1 : 0) * scrollWidth,
+                                         this._rect.height + (sx ? -1 : 0) * scrollWidth );
+            this._rectForChild = new Rect( this._rect.width +  ((sy && !widthIncludesScrollBar) ? -1 : 0) * scrollWidth,
+                                           this._rect.height + ((sx && !widthIncludesScrollBar) ? -1 : 0) * scrollWidth );
         };
     
         this._updateClientRects = function() {
@@ -4926,23 +5658,50 @@ uki.view.declare('uki.view.PasswordTextField', uki.view.TextField, function(Base
         this._layoutDom = function(rect) {
             this._updateClientRects();
         
-            if (this._layoutScrollH !== this._sbH) {
-                this._dom.style.overflowX = this._sbH ? 'scroll' : 'hidden';
-                this._layoutScrollH = this._sbH;
+            if (this._layoutScrollX !== this._sbX) {
+                this._dom.style.overflowX = this._sbX ? 'scroll' : 'hidden';
+                this._layoutScrollX = this._sbX;
             }
 
-            if (this._layoutScrollV !== this._sbV) {
-                this._dom.style.overflowY = this._sbV ? 'scroll' : 'hidden';
-                this._layoutScrollV = this._sbV;
+            if (this._layoutScrollY !== this._sbY) {
+                this._dom.style.overflowY = this._sbY ? 'scroll' : 'hidden';
+                this._layoutScrollY = this._sbY;
             }
         
             Base._layoutDom.call(this, rect);
         };
+        
+        this.childResized = function() {
+            this._needsLayout = true;
+            uki.after(uki.proxy(this.layoutIfNeeded, this));
+        };
+
+        this._contentChanged = this.childResized;
+        
     });
 
     uki.view.ScrollPane.initScrollWidth = initScrollWidth;
 })();
+
+uki.Collection.addAttrs(['scrollTop', 'scrollLeft']);
+uki.fn.scroll = function(dx, dy) {
+    this.each(function() {
+        this.scroll(dx, dy);
+    });
+};
+
 uki.view.list = {};
+/**
+ * List View
+ * Progressevly renders list data. Support selection and drag&drop.
+ * Renders rows with plain html.
+ * 
+ * @author voloko
+ * @name uki.view.List
+ * @class
+ * @extends uki.view.Base
+ * @implements uki.view.Focusable
+ */
 uki.view.declare('uki.view.List', uki.view.Base, uki.view.Focusable, function(Base, Focusable) {
     
     this._throttle = 42; // do not try to render more often than every 42ms
@@ -4960,21 +5719,59 @@ uki.view.declare('uki.view.List', uki.view.Base, uki.view.Focusable, function(Ba
         });
     };
     
+    /**
+     * @function
+     * @name uki.view.List#defaultBackground
+     */
     this.defaultBackground = function() {
         return uki.theme.background('list', this._rowHeight);
     };
     
-    uki.addProps(this, ['render', 'packSize', 'visibleRectExt', 'throttle', 'contentDraggable', 'lastClickIndex', 'multiselect', 'lastClickIndex']);
+    /**
+    * @type uki.view.list.Render
+    * @function
+    * @name uki.view.List#render
+    */
+    /**
+    * @function
+    * @name uki.view.List#packSize
+    */
+    /**
+    * @function
+    * @name uki.view.List#visibleRectExt
+    */
+    /**
+    * @function
+    * @name uki.view.List#throttle
+    */
+    /**
+    * @function
+    * @name uki.view.List#lastClickIndex
+    */
+    /**
+    * @function
+    * @name uki.view.List#multiselect
+    */
+    uki.addProps(this, ['render', 'packSize', 'visibleRectExt', 'throttle', 'lastClickIndex', 'multiselect']);
     
+    /**
+    * @function
+    * @name uki.view.List#rowHeight
+    */
     this.rowHeight = uki.newProp('_rowHeight', function(val) {
         this._rowHeight = val;
         this.minSize(new Size(this.minSize().width, this._rowHeight * this._data.length));
         if (this._background) this._background.detach();
         this._background = null;
         if (this.background()) this.background().attachTo(this);
-        this._relayoutParent();
+        this._contentChanged();
     });
     
+    /**
+    * @example list.data(['row1', 'row2', ...])
+    * @function
+    * @name uki.view.List#data
+    */
     this.data = function(d) {
         if (d === undefined) return this._data;
         this.clearSelection();
@@ -4982,11 +5779,16 @@ uki.view.declare('uki.view.List', uki.view.Base, uki.view.Focusable, function(Ba
         this._packs[0].itemFrom = this._packs[0].itemTo = this._packs[1].itemFrom = this._packs[1].itemTo = 0;
         
         this.minSize(new Size(this.minSize().width, this._rowHeight * this._data.length));
-        this.trigger('selection', {source: this})
-        this._relayoutParent();
+        this.trigger('selection', {source: this});
+        this._contentChanged();
         return this;
     };
     
+    /**
+    * Forces list content update
+    * @function
+    * @name uki.view.List#relayout
+    */
     this.relayout = function() {
         this._packs[0].itemFrom = this._packs[0].itemTo = this._packs[1].itemFrom = this._packs[1].itemTo = 0;
         this.layout();
@@ -4996,7 +5798,13 @@ uki.view.declare('uki.view.List', uki.view.Base, uki.view.Focusable, function(Ba
         return new Size(this.rect().width, this._rowHeight * this._data.length);
     };
     
-    // used in search. should be fast
+    /**
+    * used in search. should be fast
+    * @function
+    * @param {Number} position
+    * @param {String} data
+    * @name uki.view.List#addRow
+    */
     this.addRow = function(position, data) {
         this._data.splice(position, 0, data);
         var item = this._itemAt(position);
@@ -5029,23 +5837,40 @@ uki.view.declare('uki.view.List', uki.view.Base, uki.view.Focusable, function(Ba
         
         // needed for scrollbar
         this.minSize(new Size(this.minSize().width, this._rowHeight * this._data.length));
-        this._relayoutParent();
+        this._contentChanged();
 
         return this;
     };
     
-    this.removeRow = function(position, data) {
+    /**
+    * @function
+    * @param {Number} position
+    * @name uki.view.List#removeRow
+    */
+    this.removeRow = function(position) {
         this._data.splice(position, 1);
         this.data(this._data);
         return this;
     };
     
-    this.redrawRow = function(row) {
-        var item = this._itemAt(row);
-        if (item) item.innerHTML = this._render.render(this._data[row], this._rowRect(row), row);
+    /**
+    * Forces one particular row to be redrawn
+    * @function
+    * @param {Number} position
+    * @name uki.view.List#removeRow
+    */
+    this.redrawRow = function(position) {
+        var item = this._itemAt(position);
+        if (item) item.innerHTML = this._render.render(this._data[position], this._rowRect(position), position);
         return this;
     };
     
+    /**
+    * Read/write current selected index for selectable lists
+    * @function
+    * @param {Number} position
+    * @name uki.view.List#selectedIndex
+    */
     this.selectedIndex = function(position) {
         if (position === undefined) return this._selectedIndexes.length ? this._selectedIndexes[0] : -1;
         this.selectedIndexes([position]);
@@ -5053,6 +5878,12 @@ uki.view.declare('uki.view.List', uki.view.Base, uki.view.Focusable, function(Ba
         return this;
     };
     
+    /**
+    * Read/write all selected indexes for multiselectable lists
+    * @function
+    * @param {Array.<Number>} position
+    * @name uki.view.List#selectedIndex
+    */
     this.selectedIndexes = function(indexes) {
         if (indexes === undefined) return this._selectedIndexes;
         this.clearSelection(true);
@@ -5064,16 +5895,30 @@ uki.view.declare('uki.view.List', uki.view.Base, uki.view.Focusable, function(Ba
         return this;
     };
     
+    /**
+    * Read contents of selected row
+    * @function
+    * @name uki.view.List#selectedRow
+    */
     this.selectedRow = function() {
         return this._data[this.selectedIndex()];
     };    
     
+    /**
+    * Read contents of all selected rows
+    * @function
+    * @name uki.view.List#selectedRows
+    */
     this.selectedRows = function() {
         return uki.map(this.selectedIndexes(), function(index) {
             return this._data[index];
         }, this)
     };
     
+    /**
+    * @function
+    * @name uki.view.List#clearSelection
+    */
     this.clearSelection = function(skipClickIndex) {
         for (var i=0; i < this._selectedIndexes.length; i++) {
             this._setSelected(this._selectedIndexes[i], false);
@@ -5082,6 +5927,11 @@ uki.view.declare('uki.view.List', uki.view.Base, uki.view.Focusable, function(Ba
         if (!skipClickIndex) this._lastClickIndex = -1;
     };
     
+    /**
+    * @function
+    * @param {Number} index
+    * @name uki.view.List#isSelected
+    */
     this.isSelected = function(index) {
         var found = uki.binarySearch(index, this._selectedIndexes);
         return this._selectedIndexes[found] == index;
@@ -5140,7 +5990,13 @@ uki.view.declare('uki.view.List', uki.view.Base, uki.view.Focusable, function(Ba
         }
     };
     
+    this._contentChanged = function() {
+        this._needsLayout = true;
+        uki.after(uki.proxy(this._relayoutParent, this));
+    };
+
     this._relayoutParent = function() {
+        this.parent().childResized(this);
         if (!this._scrollableParent) return;
         var c = this;
         while ( c && c != this._scrollableParent) {
@@ -5237,6 +6093,7 @@ uki.view.declare('uki.view.List', uki.view.Base, uki.view.Focusable, function(Ba
     
     this._createDom = function() {
         this._dom = uki.createElement('div', this.defaultCss + 'overflow:hidden');
+        this._initClassName();
         
         var packDom = uki.createElement('div', 'position:absolute;left:0;top:0px;width:100%;overflow:hidden');
         this._packs = [
@@ -5414,8 +6271,29 @@ uki.view.declare('uki.view.List', uki.view.Base, uki.view.Focusable, function(Ba
     
 });
 
-uki.Collection.addAttrs(['data','selectedIndex', 'selectedIndexes', 'selectedRows']);
+/** @function
+@name uki.Collection#data */
+/** @function
+@name uki.Collection#selectedIndex */
+/** @function
+@name uki.Collection#selectedIndexes */
+/** @function
+@name uki.Collection#selectedRow */
+/** @function
+@name uki.Collection#selectedRows */
+/** @function
+@name uki.Collection#lastClickIndex */
+uki.Collection.addAttrs(['data', 'selectedIndex', 'selectedIndexes', 'selectedRow', 'selectedRows', 'lastClickIndex']);
 
+/**
+ * Scrollable List View
+ * Puts a list into a scroll pane
+ * 
+ * @author voloko
+ * @name uki.view.ScrollableList
+ * @class
+ * @extends uki.view.ScrollPane
+ */
 uki.view.declare('uki.view.ScrollableList', uki.view.ScrollPane, function(Base) {
 
     this._createDom = function() {
@@ -5424,16 +6302,18 @@ uki.view.declare('uki.view.ScrollableList', uki.view.ScrollPane, function(Base) 
         this.appendChild(this._list);
     };
     
-    uki.each('data rowHeight render packSize visibleRectExt throttle focusable selectedIndexes selectedIndex selectedIndexes selectedRows multiselect contentDraggable draggable textSelectable'.split(' '), 
+    uki.each('data rowHeight render packSize visibleRectExt throttle focusable selectedIndex selectedIndexes selectedRow selectedRows multiselect draggable textSelectable'.split(' '), 
         function(i, name) {
             uki.delegateProp(this, name, '_list');
         }, this);
     
 });
 
+
 /**
  * Flyweight view rendering
  * Used in lists, tables, grids
+ * @class
  */
 uki.view.list.Render = uki.newClass({
     init: function() {},
@@ -5452,8 +6332,42 @@ uki.view.list.Render = uki.newClass({
         container.style.color = state && focus ? '#FFF' : '#000';
     }
 });
+
+
+
+
 uki.view.table = {};
 
+/**
+* Table
+*
+* Uses uki.view.List to render data. Wraps it into scroll pane and ads a header
+* @author voloko
+* @name uki.view.Table
+* @class
+* @extends uki.view.Container
+*
+* @lends uki.view.List#rowHeight as rowHeight
+* @lends uki.view.List#data as data
+* @lends uki.view.List#packSize as packSize
+* @lends uki.view.List#visibleRectExt as visibleRectExt
+* @lends uki.view.List#render as render
+* @lends uki.view.List#selectedIndex as selectedIndex
+* @lends uki.view.List#selectedIndexes as selectedIndexes
+* @lends uki.view.List#selectedRow as selectedRow
+* @lends uki.view.List#selectedRows as selectedRows
+* @lends uki.view.List#lastClickIndex as lastClickIndex
+* @lends uki.view.List#textSelectable as textSelectable
+* @lends uki.view.List#multiselect as multiselect
+* @lends uki.view.List#redrawRow as redrawRow
+* @lends uki.view.List#addRow as addRow
+* @lends uki.view.List#removeRow as removeRow
+* @lends uki.view.List#focusable as lastClickIndex
+* @lends uki.view.List#focus as focus
+* @lends uki.view.List#blur as blur
+* @lends uki.view.List#hasFocus as hasFocus
+*
+*/
 uki.view.declare('uki.view.Table', uki.view.Container, function(Base) {
     var propertiesToDelegate = 'rowHeight data packSize visibleRectExt render selectedIndex selectedIndexes selectedRows selectedRow focus blur hasFocus lastClickIndex focusable textSelectable multiselect'.split(' ');
     
@@ -5474,14 +6388,29 @@ uki.view.declare('uki.view.Table', uki.view.Container, function(Base) {
         return Base._style.call(this, name, value);
     };
     
+    /**
+    * @function
+    * @return {uki.view.List}
+    * @name uki.view.Table#list
+    */
     this.list = function() {
         return this._list;
     };
     
+    /**
+    * @function
+    * @return {uki.view.table.Header}
+    * @name uki.view.Table#header
+    */
     this.header = function() {
         return this._header;
     };
     
+    /**
+    * @function
+    * @param {Array.<uki.view.table.Column>} c
+    * @name uki.view.Table#columns
+    */
     this.columns = uki.newProp('_columns', function(c) {
         for (var i = 0; i < this._columns.length; i++) {
             this._columns[i].unbind();
@@ -5499,6 +6428,12 @@ uki.view.declare('uki.view.Table', uki.view.Container, function(Base) {
         this._header.columns(this._columns);
     });
     
+    /**
+    * @function
+    * @param {Number} row
+    * @param {Number} col
+    * @name uki.view.Table#redrawCell
+    */
     this.redrawCell = function(row, col) {
         var item = this._list._itemAt(row);
         if (item) {
@@ -5519,11 +6454,16 @@ uki.view.declare('uki.view.Table', uki.view.Container, function(Base) {
             this.list()[name].apply(this.list(), arguments);
             return this;
         };
-    }, this)
+    }, this);
     
+    /**
+    * @function
+    * @param {Number} col
+    * @name uki.view.Table#redrawColumn
+    */
     this.redrawColumn = function(col) {
         var from = this._list._packs[0].itemFrom,
-            to   = this._list._packs[1].itemTo
+            to   = this._list._packs[1].itemTo;
         for (var i=from; i < to; i++) {
             this.redrawCell(i, col);
         };
@@ -5543,6 +6483,7 @@ uki.view.declare('uki.view.Table', uki.view.Container, function(Base) {
     
     this._createDom = function() {
         Base._createDom.call(this);
+        this._initClassName();
         var scrollPaneRect = new Rect(0, this._headerHeight, this.rect().width, this.rect().height - this._headerHeight),
             listRect = scrollPaneRect.clone().normalize(),
             headerRect = new Rect(0, 0, this.rect().width, this._headerHeight),
@@ -5570,6 +6511,11 @@ uki.view.declare('uki.view.Table', uki.view.Container, function(Base) {
 
 uki.Collection.addAttrs(['columns']);
 
+
+/**
+ * @class
+ * @extends uki.view.list.Render
+ */
 uki.view.table.Render = uki.newClass(uki.view.list.Render, new function() {
     this.init = function(table) {
         this._table = table;
@@ -5582,7 +6528,12 @@ uki.view.table.Render = uki.newClass(uki.view.list.Render, new function() {
             return columns[j].render(row, rect, i);
         }).join('');
     };
-});uki.view.table.Column = uki.newClass(uki.view.Observable, new function() {
+});
+/**
+ * @class
+ * @extends uki.view.Observable
+ */
+uki.view.table.Column = uki.newClass(uki.view.Observable, new function() {
     this._width = 100;
     this._offset = 0;
     this._position = 0;
@@ -5590,21 +6541,36 @@ uki.view.table.Render = uki.newClass(uki.view.list.Render, new function() {
     this._maxWidth = 0;
     this._css = 'float:left;white-space:nowrap;text-overflow:ellipsis;';
     this._inset = new Inset(3, 5);
+    this._templatePrefix = 'table-';
 
     this.init = function() {};
     
-    uki.addProps(this, ['position', 'css', 'formatter', 'label', 'resizable', 'maxWidth', 'minWidth', 'maxWidth', 'key']);
+    uki.addProps(this, ['position', 'css', 'formatter', 'label', 'resizable', 'maxWidth', 'minWidth', 'maxWidth', 'key', 'sort']);
     
-    this.template = function(v) {
-        if (v === undefined) return this._template = this._template || uki.theme.template('table-cell');
-        this._template = v;
-        return this;
+    this.template = function() {
+        // cache
+        return this._template || (this._template = uki.theme.template(this._templatePrefix + 'cell'));
     };
     
-    this.headerTemplate = function(v) {
-        if (v === undefined) return this._headerTemplate = this._headerTemplate || uki.theme.template('table-header-cell');
-        this._headerTemplate = v;
-        return this;
+    this.headerTemplate = function() {
+        var suffix = '';
+        if (this.sort() == 'ASC') suffix = '-asc';
+        if (this.sort() == 'DESC') suffix = '-desc';
+        return uki.theme.template(this._templatePrefix + 'header-cell' + suffix);
+    };
+    
+    this.sortData = function(data) {
+        var _this = this;
+        return data.sort(function(a, b) {
+            return _this._key ? 
+                _this.compare(uki.attr(a, _this._key), uki.attr(b, _this._key)) : 
+                _this.compare(a[_this._position], b[_this._position]);
+        });
+        
+    };
+    
+    this.compare = function(a, b) {
+        return (a >= b ? 1 : a == b ? 0 : -1) * (this._sort == 'DESC' ? -1 : 1);
     };
     
     /**
@@ -5654,8 +6620,8 @@ uki.view.table.Render = uki.newClass(uki.view.list.Render, new function() {
     this.renderHeader = function(height) {
         this._className || this._initStylesheet();
         var x = this.headerTemplate().render({
-            data: '<div style="overflow:hidden;text-overflow:ellipsis;*width:100%;height:100%;">' + this.label() + '</div>',
-            style: '*overflow-y:hidden;' + this._cellStyle(uki.dom.offset.boxModel ? height - 1 : height),
+            data: '<div style="overflow:hidden;text-overflow:ellipsis;*width:100%;height:100%;padding-top:' + this._inset.top + 'px">' + this.label() + '</div>',
+            style: '*overflow-y:hidden;' + this._cellStyle(true, height),
             className: this._className
         });
         return x;
@@ -5665,19 +6631,22 @@ uki.view.table.Render = uki.newClass(uki.view.list.Render, new function() {
         this._className || this._initStylesheet();
         this._prerenderedTemplate = this.template().render({
             data: '\u0001\u0001',
-            style: 'overflow:hidden;' + this._cellStyle(rect.height),
+            style: 'overflow:hidden;' + this._cellStyle(false, rect.height),
             className: this._className
         }).split('\u0001');
     };
     
-    this._cellPadding = function() {
+    this._cellPadding = function(skipVertical) {
         var inset = this._inset;
-        return ['padding:', inset.top, 'px ', inset.right, 'px ', inset.bottom, 'px ', inset.left, 'px;'].join('');
+        return ['padding:', (skipVertical ? '0' : inset.top), 'px ', inset.right, 'px ', (skipVertical ? '0' : inset.bottom), 'px ', inset.left, 'px;'].join('');
     };
     
-    this._cellStyle = function(height) {
-        var h = 'height:' + (height - (uki.dom.offset.boxModel ? this._inset.height() : 0)) + 'px;';
-        return this._css + this._cellPadding() + ';' + h;
+    this._cellHeight = function(skipVertical, height) {
+        return 'height:' + (height - (uki.dom.offset.boxModel && !skipVertical ? this._inset.height() : 0)) + 'px;';
+    };
+    
+    this._cellStyle = function(skipVertical, height) {
+        return this._css + this._cellPadding(skipVertical) + ';' + this._cellHeight(skipVertical, height);
     };
     
     this._clientWidth = function() {
@@ -5698,16 +6667,29 @@ uki.view.table.NumberColumn = uki.newClass(uki.view.table.Column, new function()
     var Base = uki.view.table.Column.prototype;
 
     this._css = Base._css + 'text-align:right;';
+    
+    this.compare = function(a, b) {
+        a*=1;
+        b*=1;
+        return (a >= b ? 1 : a == b ? 0 : -1) * (this._sort == 'DESC' ? -1 : 1);
+    };
 });
 
-uki.view.table.CustomColumn = uki.view.table.Column;uki.view.table.Header = uki.newClass(uki.view.Label, function(Base) {
+uki.view.table.CustomColumn = uki.view.table.Column;
+
+
+/**
+ * @class
+ * @extends uki.view.Label
+ */
+uki.view.declare('uki.view.table.Header', uki.view.Label, function(Base) {
+    this._defaultBackground = 'theme(table-header)';
+    
     this._setup = function() {
         Base._setup.call(this);
         this._multiline = true;
         this._resizers = [];
     };
-    
-    this.typeName = function() { return 'uki.view.table.Header'; };
     
     this.columns = uki.newProp('_columns', function(v) {
         this._columns = v;
@@ -5715,10 +6697,25 @@ uki.view.table.CustomColumn = uki.view.table.Column;uki.view.table.Header = uki.
         this._createResizers();
     });
     
-    this.redrawColumn = function(col) {
-        if (this._resizers[col]) {
-            uki.dom.unbind(this._resizers[col]);
+    this._createDom = function() {
+        Base._createDom.call(this);
+        this.bind('click', this._click);
+    };
+    
+    this._click = function(e) {
+        if (this._dragging) return;
+        
+        var target = e.target;
+        if (target == this.dom() || target == this._label) return;
+        while (target.parentNode != this._label) target = target.parentNode;
+        var i = uki.inArray(target, this._label.childNodes);
+        if (i > -1) {
+            this.trigger('columnClick', { source: this, columnIndex: i, column: this._columns[i] });
         }
+    };
+    
+    this.redrawColumn = function(col) {
+        if (this._resizers[col]) uki.dom.unbind(this._resizers[col]);
         var container = doc.createElement('div');
         container.innerHTML = this._columns[col].renderHeader(this.rect().height);
         this._label.replaceChild(container.firstChild, this._label.childNodes[col]);
@@ -5730,7 +6727,7 @@ uki.view.table.CustomColumn = uki.view.table.Column;uki.view.table.Header = uki.
         for(var i = 0, offset = 0, columns = this._columns, l = columns.length; i < l; i++) {
             html[html.length] = columns[i].renderHeader(this.rect().height);
         }
-        return html.join('')
+        return html.join('');
     };
     
     this._createResizer = function(i) {
@@ -5747,17 +6744,39 @@ uki.view.table.CustomColumn = uki.view.table.Column;uki.view.table.Header = uki.
     };
     
     this._bindResizerDrag = function(resizer, columnIndex) {
-        uki.dom.bind(resizer, 'draggesture', uki.proxy(function(e) {
-            var headerOffset = uki.dom.offset(this.dom()),
+        var _this = this;
+        
+        uki.dom.bind(resizer, 'draggesture', function(e) {
+            _this._dragging = true;
+            var headerOffset = uki.dom.offset(_this.dom()),
                 offsetWithinHeader = e.pageX - headerOffset.x,
-                columnOffset = 0, i, column = this._columns[columnIndex];
+                columnOffset = 0, i, column = _this._columns[columnIndex];
             for (i=0; i < columnIndex; i++) {
-                columnOffset += this._columns[i].width();
+                columnOffset += _this._columns[i].width();
             };
             column.width(offsetWithinHeader - columnOffset);
-        }, this));
+        });
+        
+        uki.dom.bind(resizer, 'draggestureend', function() {
+            setTimeout(function() {
+                _this._dragging = false;
+            }, 1);
+        });
     };
-});uki.view.declare('uki.view.Slider', uki.view.Base, uki.view.Focusable, function(Base, Focusable) {
+});
+
+/**
+* Horizontal Slider. 
+*
+* @author voloko
+* @name uki.view.Slider
+* @class
+* @extends uki.view.Base
+* @implements uki.view.Focusable
+*/
+uki.view.declare('uki.view.Slider', uki.view.Container, uki.view.Focusable, function(Base, Focusable) {
+    
+    this._handleSize = new Size(10,18);
     
     this._setup = function() {
         Base._setup.call(this);
@@ -5770,6 +6789,22 @@ uki.view.table.CustomColumn = uki.view.table.Column;uki.view.table.Header = uki.
         });
     };
     
+    /**
+    * @function
+    * @name uki.view.Slider#min
+    */
+    /**
+    * @function
+    * @name uki.view.Slider#max
+    */
+    /**
+    * @function
+    * @name uki.view.Slider#values
+    */
+    /**
+    * @function
+    * @name uki.view.Slider#keyStep
+    */
     uki.addProps(this, ['min', 'max', 'values', 'keyStep']);
     
     this.values = uki.newProp('_values', function(val) {
@@ -5779,74 +6814,69 @@ uki.view.table.CustomColumn = uki.view.table.Column;uki.view.table.Header = uki.
     });
     
     /**
-     * @fires event:change
-     */
+    * @function
+    * @fires event:change
+    * @name uki.view.Slider#value
+    */
     this.value = uki.newProp('_value', function(val) {
         this._value = MAX(this._min, MIN(this._max, val));
         this._position = this._val2pos(this._value);
         this._moveHandle();
-        this.trigger('change', {source: this, value: this._value});
     });
     
     this._pos2val = function(pos, cacheIndex) {
         if (this._values) {
-            var index = Math.round(1.0 * pos / this._rect.width * (this._values.length - 1));
+            var index = Math.round(1.0 * pos / (this._rect.width - this._handleSize.width) * (this._values.length - 1));
             if (cacheIndex) this._cachedIndex = index;
             return this._values[index];
         }
-        return pos / this._rect.width * (this._max - this._min);
+        return pos / (this._rect.width - this._handleSize.width) * (this._max - this._min) + this._min;
     };
     
     this._val2pos = function(val) {
         if (this._values) {
             var index = this._cachedIndex !== undefined ? this._cachedIndex : uki.binarySearch(val, this._values);
-            return index / (this._values.length - 1) * this._rect.width;
+            return index / (this._values.length - 1) * (this._rect.width - this._handleSize.width);
         }
-        return val / (this._max - this._min) * this._rect.width;
+        return (val - this._min) / (this._max - this._min) * (this._rect.width - this._handleSize.width);
     };
     
     this._createDom = function() {
         this._dom = uki.createElement('div', this.defaultCss + 'height:18px;-moz-user-select:none;-webkit-user-select:none;overflow:visible;');
-        this._handle = uki.createElement('div', this.defaultCss + 'overflow:hidden;cursor:default;background:url(' + uki.theme.image('x').src + ')');
-        this._bg = uki.theme.image('slider-handle');
-        this._focusBg = uki.theme.image('slider-focus');
-        this._focusBg.style.cssText += this._bg.style.cssText += this.defaultCss + 'top:0;left:0;z-index:-1;position:absolute;'; 
-        this._handle.appendChild(this._bg);
-        
+        this._initClassName();
+        this._handle = uki({ 
+            view: 'SliderHandle', 
+            rect: new Rect(0, (this._rect.height-this._handleSize.height)/2, this._handleSize.width, this._handleSize.height),
+            anchors: 'left top'
+        })[0];
+        this.appendChild(this._handle);
         
         uki.theme.background('slider-bar').attachTo(this);
-        this._initFocusable();
-        
-        uki.image.load([this._bg, this._focusBg], uki.proxy(this._afterHandleLoad, this) );
-    };
-    
-    this._afterHandleLoad = function() {
-        this._focusBg.style.cssText += ';z-index:10;margin-left:-' + (this._focusBg.width) / 2 + 'px;margin-top:-' + (this._focusBg.height-(this._bg.height/2)+1)/2 + 'px;';
-        this._handle.style.cssText += ';margin-left:-' + (this._bg.width / 2) + 'px;width:' +this._bg.width + 'px;height:' + (this._bg.height / 2) + 'px;';
-        this._dom.appendChild(this._handle);
-        
-        uki.each(['mouseenter', 'mouseleave', 'draggesturestart', 'draggesture', 'draggestureend'], function(i, name) {
-            uki.dom.bind(this._handle, name, uki.proxy(this['_' + name], this));
+        uki.each(['draggesturestart', 'draggesture', 'draggestureend'], function(i, name) {
+            this._handle.bind(name, uki.proxy(this['_' + name], this));
         }, this);
         
-        this.bind('click', this._click);
         this.bind(uki.view.List.prototype.keyPressEvent(), this._keypress);
+        this.bind('click', this._click);
+        
+        this._initFocusable();
     };
     
-    this._mouseenter = function() {
-        this._over = true;
-        this._bg.style.top = - this._bg.height / 2 + 'px';
+    this._focus = function(e) {
+        this._handle._focus();
+        Focusable._focus.call(this, e);
     };
-    
-    this._mouseleave = function() {
-        this._over = false;
-        this._bg.style.top = this._dragging ? (- this._bg.height / 2 + 'px') : 0;
+
+    this._blur = function(e) {
+        this._handle._blur();
+        Focusable._blur.call(this, e);
     };
     
     this._click = function(e) {
-        var x = e.pageX - uki.dom.offset(this._dom).x;
+        var x = e.pageX - uki.dom.offset(this._dom).x - this._handleSize.width/2;
         this.value(this._pos2val(x, true));
         this._cachedIndex = undefined;
+        this.trigger('change', {source: this, value: this._value});
     };
     
     this._keypress = function(e) {
@@ -5858,13 +6888,15 @@ uki.view.table.CustomColumn = uki.view.table.Column;uki.view.table.Header = uki.
     };
     
     this._moveHandle = function() {
-        // this._focusBg.style.left = this._handle.style.left = 100.0*this._position/this._rect.width + '%';
-        this._focusBg.style.left = this._handle.style.left = this._position + 'px';
+        var rect = this._handle.rect().clone();
+        rect.x = this._position;
+        rect.y = (this._rect.height - this._handleSize.height) / 2;
+        this._handle.rect(rect).layout();
     };
     
     this._draggesturestart = function(e) {
         this._dragging = true;
-        this._initialPosition = new Point(parseInt(this._handle.style.left, 10), parseInt(this._handle.style.top, 10));
+        this._initialPosition = this._handle.rect().clone();
         return true;
     };
     
@@ -5872,7 +6904,7 @@ uki.view.table.CustomColumn = uki.view.table.Column;uki.view.table.Header = uki.
      * @fires event:change
      */
     this._draggesture = function(e) {
-        var position = MAX(0, MIN(this._rect.width, this._initialPosition.x + e.dragOffset.x));
+        var position = MAX(0, MIN(this._rect.width - this._handleSize.width, this._initialPosition.x + e.dragOffset.x));
         this.value(this._pos2val(position, true));
         this._cachedIndex = undefined;
     };
@@ -5880,26 +6912,13 @@ uki.view.table.CustomColumn = uki.view.table.Column;uki.view.table.Header = uki.
     this._draggestureend = function(e) {
         this._dragging = false;
         this._initialPosition = null;
-        if (!this._over) this._bg.style.top = 0;
         this.value(this._pos2val(this._position, true));
         this._cachedIndex = undefined;
-    };
-    
-    this._focus = function(e) {
-        this._dom.appendChild(this._focusBg);
-        this._focusBg.style.left = this._handle.style.left;
-        Focusable._focus.call(this, e);
-    };
-    
-    this._blur = function(e) {
-        this._dom.removeChild(this._focusBg);
-        Focusable._blur.call(this, e);
+        this.trigger('change', {source: this, value: this._value});
     };
     
     this._layoutDom = function(rect) {
-        var fixedRect = rect.clone();
-        fixedRect.height = 18;
-        Base._layoutDom.call(this, fixedRect);
+        Base._layoutDom.call(this, rect);
         this._position = this._val2pos(this._value);
         this._moveHandle();
         return true;
@@ -5911,7 +6930,20 @@ uki.view.table.CustomColumn = uki.view.table.Column;uki.view.table.Header = uki.
     };
     
 });
+
+uki.view.declare('uki.view.SliderHandle', uki.view.Button, { _backgroundPrefix: 'slider-handle-', _focusable: false });
+
+/**
+* Horizontal Split Pane
+*
+* @author voloko
+* @name uki.view.HSplitPane
+* @class
+* @extends uki.view.Container
+*/
 uki.view.declare('uki.view.HSplitPane', uki.view.Container, function(Base) {
+    this._throttle = 0; // do not try to render more often than every Xms
+    
     this._setup = function() {
         Base._setup.call(this);
         this._originalRect = this._rect;
@@ -5929,14 +6961,44 @@ uki.view.declare('uki.view.HSplitPane', uki.view.Container, function(Base) {
     };
     
     /**
-     * @fires event:handleMove
-     */
+    * @function
+    * @name uki.view.HSplitPane#leftMin
+    */
+    /**
+    * @function
+    * @name uki.view.HSplitPane#rightMin
+    */
+    /**
+    * @function
+    * @name uki.view.HSplitPane#autogrowLeft
+    */
+    /**
+    * @function
+    * @name uki.view.HSplitPane#autogrowRight
+    */
+    /**
+    * @function
+    * @name uki.view.HSplitPane#throttle
+    */
+    uki.addProps(this, ['leftMin', 'rightMin', 'autogrowLeft', 'autogrowRight', 'throttle']);
+    this.topMin = this.leftMin;
+    this.bottomMin = this.rightMin;
+    
+    /**
+    * @function
+    * @fires event:handleMove
+    * @name uki.view.HSplitPane#handlePosition
+    */
     this.handlePosition = uki.newProp('_handlePosition', function(val) {
         this._handlePosition = this._normalizePosition(val);
         this.trigger('handleMove', {source: this, handlePosition: this._handlePosition, dragValue: val });
         this._resizeChildViews();
     });
     
+    /**
+    * @function
+    * @name uki.view.HSplitPane#handleWidth
+    */
     this.handleWidth = uki.newProp('_handleWidth', function(val) {
         if (this._handleWidth != val) {
             this._handleWidth = val;
@@ -5959,10 +7021,6 @@ uki.view.declare('uki.view.HSplitPane', uki.view.Container, function(Base) {
                 ));
     };
     
-    
-    uki.addProps(this, ['leftMin', 'rightMin', 'autogrowLeft', 'autogrowRight']);
-    this.topMin = this.leftMin;
-    this.bottomMin = this.rightMin;
     
     this._removeHandle = function() {
         this._dom.removeChild(this._handle);
@@ -5987,6 +7045,7 @@ uki.view.declare('uki.view.HSplitPane', uki.view.Container, function(Base) {
     
     this._createDom = function() {
         this._dom = uki.createElement('div', this.defaultCss);
+        this._initClassName();
         for (var i=0, paneML; i < 2; i++) {
             paneML = { view: 'Container' };
             paneML.anchors = i == 1         ? 'left top bottom right' :
@@ -6037,26 +7096,74 @@ uki.view.declare('uki.view.HSplitPane', uki.view.Container, function(Base) {
     };
     
     this._draggesture = function(e) {
-        var offset = uki.dom.offset(this.dom());
-        this.handlePosition(e[this._vertical ? 'pageY' : 'pageX'] - offset[this._vertical ? 'y' : 'x'] - this._posWithinHandle);
-        this.layout();
+        this._updatePositionOnDrag(e);
     };
     
     this._draggestureend = function(e, offset) {
+        this._updatePositionOnDrag(e);
     };
     
+    this._updatePositionOnDrag = function(e) {
+        var offset = uki.dom.offset(this.dom());
+        this.handlePosition(e[this._vertical ? 'pageY' : 'pageX'] - offset[this._vertical ? 'y' : 'x'] - this._posWithinHandle);
+        if (this._throttle) {
+            this._throttleHandler = this._throttleHandler || uki.proxy(function() {
+                this.layout();
+                this._trottling = false;
+            }, this);
+            if (this._trottling) return;
+            this._trottling = true;
+            setTimeout(this._throttleHandler, this._throttle);
+        } else {
+            this.layout();
+        }
+    };
+    
+    
+    /**
+    * @function
+    * @name uki.view.HSplitPane#topPane
+    */
+    /**
+    * @function
+    * @name uki.view.HSplitPane#leftPane
+    */
     this.topPane = this.leftPane = function(pane) {
         return this._paneAt(0, pane);
     };
     
+    /**
+    * @function
+    * @name uki.view.HSplitPane#bottomPane
+    */
+    /**
+    * @function
+    * @name uki.view.HSplitPane#rightPane
+    */
     this.bottomPane = this.rightPane = function(pane) {
         return this._paneAt(1, pane);
     };
     
+    /**
+    * @function
+    * @name uki.view.HSplitPane#topChildViews
+    */
+    /**
+    * @function
+    * @name uki.view.HSplitPane#leftChildViews
+    */
     this.topChildViews = this.leftChildViews = function(views) {
         return this._childViewsAt(0, views);
     };
     
+    /**
+    * @function
+    * @name uki.view.HSplitPane#rightChildViews
+    */
+    /**
+    * @function
+    * @name uki.view.HSplitPane#bottomChildViews
+    */
     this.bottomChildViews = this.rightChildViews = function(views) {
         return this._childViewsAt(1, views);
     };
@@ -6112,6 +7219,14 @@ uki.view.declare('uki.view.HSplitPane', uki.view.Container, function(Base) {
     
 });
 
+/**
+* Vertical Split Pane
+*
+* @author voloko
+* @name uki.view.VSplitPane
+* @class
+* @extends uki.view.HSplitPane
+*/
 uki.view.declare('uki.view.VSplitPane', uki.view.HSplitPane, function(Base) {
     this._setup = function() {
         Base._setup.call(this);
@@ -6121,6 +7236,16 @@ uki.view.declare('uki.view.VSplitPane', uki.view.HSplitPane, function(Base) {
 
 
 uki.Collection.addAttrs(['handlePosition']);
+
+
+/**
+ * Popup
+ * 
+ * @author voloko
+ * @name uki.view.Popup
+ * @class
+ * @extends uki.view.Container
+ */
 uki.view.declare('uki.view.Popup', uki.view.Container, function(Base) {
     
     this._setup = function() {
@@ -6139,8 +7264,28 @@ uki.view.declare('uki.view.Popup', uki.view.Container, function(Base) {
         this.hideOnClick(true);
     };
     
+    /**
+    * @function
+    * @name uki.view.Popup#offset
+    */
+    /**
+    * @function
+    * @name uki.view.Popup#relativeTo
+    */
+    /**
+    * @function
+    * @name uki.view.Popup#horizontal
+    */
+    /**
+    * @function
+    * @name uki.view.Popup#flipOnResize
+    */
     uki.addProps(this, ['offset', 'relativeTo', 'horizontal', 'flipOnResize']);
     
+    /**
+    * @function
+    * @name uki.view.Popup#hideOnClick
+    */
     this.hideOnClick = function(state) {
         if (state === undefined) return this._clickHandler;
         if (state != !!this._clickHandler) {
@@ -6161,6 +7306,10 @@ uki.view.declare('uki.view.Popup', uki.view.Container, function(Base) {
         return this;
     };
     
+    /**
+    * @function
+    * @name uki.view.Popup#toggle
+    */
     this.toggle = function() {
         if (this.parent() && this.visible()) {
             this.hide();
@@ -6169,6 +7318,10 @@ uki.view.declare('uki.view.Popup', uki.view.Container, function(Base) {
         }
     };
     
+    /**
+    * @function
+    * @name uki.view.Popup#show
+    */
     this.show = function() {
         this.visible(true);
         if (!this.parent()) {
@@ -6180,6 +7333,10 @@ uki.view.declare('uki.view.Popup', uki.view.Container, function(Base) {
         this.trigger('toggle', { source: this });
     };
     
+    /**
+    * @function
+    * @name uki.view.Popup#hide
+    */
     this.hide = function() {
         this.visible(false);
         this.trigger('toggle', { source: this });
@@ -6214,14 +7371,18 @@ uki.view.declare('uki.view.Popup', uki.view.Container, function(Base) {
 
         if (this._anchors & ANCHOR_RIGHT) {
             position.x = relativeOffset.x + relativeRect.width - (this._horizontal ? 0 : rect.width) + hOffset;
-        } else {
+        } else if (this._anchors & ANCHOR_LEFT) {
             position.x = relativeOffset.x - (this._horizontal ? rect.width : 0) - hOffset;
+        } else {
+            position.x = relativeOffset.x + ((relativeRect.width - rect.width) >> 1) - hOffset;
         }
         
         if (this._anchors & ANCHOR_BOTTOM) {
             position.y = relativeOffset.y + (this._horizontal ? relativeRect.height : 0) - rect.height - vOffset;
-        } else {
+        } else if (this._anchors & ANCHOR_TOP) {
             position.y = relativeOffset.y + (this._horizontal ? 0 : relativeRect.height) + vOffset;
+        } else {
+            position.y = relativeOffset.y + ((relativeRect.height - rect.height) >> 1) + vOffset;
         }
         
         return new Rect(position.x, position.y, rect.width, rect.height);
@@ -6233,7 +7394,17 @@ uki.each(['show', 'hide', 'toggle'], function(i, name) {
     uki.fn[name] = function() {
         this.each(function() { this[name](); });
     };
-});uki.view.declare('uki.view.VFlow', uki.view.Container, function(Base) {
+});
+/**
+ * Vertical Flow
+ * Arranges child views verticaly, one after another
+ *
+ * @author voloko
+ * @name uki.view.VFlow
+ * @class
+ * @extends uki.view.Container
+ */
+uki.view.declare('uki.view.VFlow', uki.view.Container, function(Base) {
     this.contentsSize = function() {
         var value = uki.reduce(0, this._childViews, function(sum, e) { 
                 return sum + (e.visible() ? e.rect().height : 0); 
@@ -6248,21 +7419,12 @@ uki.each(['show', 'hide', 'toggle'], function(i, name) {
         return Base.resizeToContents.call(this, autosizeStr);
     }
     
-    uki.each(['appendChild', 'removeChild', 'insertBefore'], function(i, name) {
-        this[name] = function(arg1, arg2) {
-            this._contentChanged = true;
-            return Base[name].call(this, arg1, arg2);
-        };
-    }, this)
-    
     this.layout = function() {
-        if (this._contentChanged) this._resizeChildViews(this._rect);
         return Base.layout.call(this);
     };
     
     // resize in layout
     this._resizeChildViews = function(oldRect) {
-        this._contentChanged = false;
         var offset = 0, rect, view;
         for (var i=0, childViews = this.childViews(); i < childViews.length; i++) {
             view = childViews[i];
@@ -6275,8 +7437,31 @@ uki.each(['show', 'hide', 'toggle'], function(i, name) {
             if (view.visible()) offset += view._rect.height;
         };
     };
+    
+    this.childResized = function() {
+        this._needsLayout = true;
+        uki.after(uki.proxy(this._afterChildResized, this));
+    };
+    
+    this._contentChanged = this.childResized;
+    
+    this._afterChildResized = function() {
+        this.resizeToContents('height');
+        this.parent().childResized(this);
+        this.layoutIfNeeded();
+    };
+    
 });
 
+/**
+ * Horizontla Flow
+ * Arranges child views horizontally
+ *
+ * @author voloko
+ * @name uki.view.HFlow
+ * @class
+ * @extends uki.view.VFlow
+ */
 uki.view.declare('uki.view.HFlow', uki.view.VFlow, function(Base) {
     this.contentsSize = function() {
         var value = uki.reduce(0, this._childViews, function(sum, e) { 
@@ -6299,9 +7484,26 @@ uki.view.declare('uki.view.HFlow', uki.view.VFlow, function(Base) {
         };
     };
     
+    this._afterChildResized = function() {
+        this.resizeToContents('width');
+        this.parent().childResized(this);
+        this.layoutIfNeeded();
+    };
 });
+
+
+
+
 uki.view.toolbar = {};
 
+/**
+* Toolbar
+*
+* @author voloko
+* @name uki.view.Toolbar
+* @class
+* @extends uki.view.Container
+*/
 uki.view.declare('uki.view.Toolbar', uki.view.Container, function(Base) {
 
     this.typeName = function() { return 'uki.view.Toolbar'; };
@@ -6314,6 +7516,10 @@ uki.view.declare('uki.view.Toolbar', uki.view.Container, function(Base) {
         this._widths = [];
     };
     
+    /**
+    * @function
+    * @name uki.view.Toolbar#buttons
+    */
     this.buttons = uki.newProp('_buttons', function(b) {
         this._buttons = b;
         var buttons = uki.build(uki.map(this._buttons, this._createButton, this)).resizeToContents('width');
@@ -6321,6 +7527,10 @@ uki.view.declare('uki.view.Toolbar', uki.view.Container, function(Base) {
         this._totalWidth = uki.reduce(0, this._flow.childViews(), function(s, v) { return s + v.rect().width; });
     });
     
+    /**
+    * @function
+    * @name uki.view.Toolbar#moreWidth
+    */
     uki.moreWidth = uki.newProp('_moreWidth', function(v) {
         this._moreWidth = v;
         this._updateMoreVisible();
@@ -6391,53 +7601,66 @@ uki.view.declare('uki.view.Toolbar', uki.view.Container, function(Base) {
                 anchors: 'left top', backgroundPrefix: 'toolbar-button-', autosizeToContents: 'width', focusable: false
             }, descr);
     };    
-});}());(function() {
-    var defaultCss = 'position:absolute;z-index:100;-moz-user-focus:none;font-family:Arial,Helvetica,sans-serif;';
-    
+});
+
+}());
+(function() {
+    var defaultCss = 'position:absolute;z-index:100;-moz-user-focus:none;font-family:Arial,Helvetica,sans-serif;',
+        reflex     = '<div style="position:absolute;z-index:1;left:1px;bottom:0px;right:1px;height:1px;overflow:hidden;background:rgba(255,255,255,0.4)"></div>';
+
     uki.theme.airport = uki.extend({}, uki.theme.Base, {
-        imagePath: 'http://static.ukijs.org/pkg/0.2.2/uki-theme/airport/i/',
+        imagePath: 'http://static.ukijs.org/pkg/0.3.8/uki-theme/airport/i/',
         
         backgrounds: {
             // basic button
             'button-normal': function() {
-                var prefix = "button/normal-";
-                return new uki.background.Sliced9({
-                    c: [u(prefix + "c.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAYAAAAGCAYAAADgzO9IAAAAS0lEQVQIW2NgAILy8vL/yJgBJrh+/fr/MABigyVBxN9//1EwXGLGrDn/j5++9P/G7Qf/t+/YBZEA6k5LTU39j4xBYmB7QAxkDBIDALKrX9FN99pwAAAAAElFTkSuQmCC", u(prefix + "c.gif")],
-                    v: [u(prefix + "v.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAYAAAATCAYAAACz13xgAAAAT0lEQVQYlZXPMQ6AQAhE0b9m78zZFca1sdEwxZLQ8MIQiIh1XuvTEbEmQOnmXxNAVT2UB5komY1MA5KNys3jHlyUtv+wNzhGDwMDzfyFRh7wcj5EWWRJUgAAAABJRU5ErkJggg==", false, true],
-                    h: [u(prefix + "h.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAH8AAAAGCAYAAADqkEEaAAAAMklEQVRIie3DUQ0AIAxDwZodFmaVhB+MjIeQ9pJTd5OeRdjSPEjP2ueSnlVVpGcBKz1/kUWrDOOOWIQAAAAASUVORK5CYII=", u(prefix + "h.gif")],
-                    m: [u(prefix + "m.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAH8AAAATCAYAAAC5i9IyAAAAXklEQVQYGe3BgRHDMAACsXeP/fdtDUkHAUnf3/syleQ8TCfFZjrJNtNJdphOSsx00r1mOikJ00nJZTrJDtNJdphOci7TSXGYTkrMdJIdppP4HKaTDofpJA5TSnCYTn/FLC2twbqbSQAAAABJRU5ErkJggg==", null, true]
-                }, '3 3 3 3', { inset: '0 0 -1 0'});
+                return new uki.background.LinearGradient({
+                    startColor: '#FDFEFF',
+                    stops: [ 
+                        { pos: 0.15, color: '#F5F7FD' },
+                        { pos: 0.8, color: '#C9CACF' }
+                    ],
+                    endColor: '#C7CBD2',
+                    innerHTML: reflex,
+                    css: 'border:1px solid #666;border-radius:3px;box-shadow:0 1px 0 rgba(255,255,255,0.5);'
+                });
             },
             
             'button-hover': function() {
-                var prefix = "button/hover-";
-                return new uki.background.Sliced9({
-                    c: [u(prefix + "c.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAYAAAAGCAYAAADgzO9IAAAAS0lEQVQIW2NgAILy8vL/yJgBJrh+/fr/MABigyVBxN9//1EwXGL+wqX/b9579v/Ji3f/9+w9AJEA6m5ITU39j4xBYmB7QAxkDBIDAN/zYPRpDtd1AAAAAElFTkSuQmCC", u(prefix + "c.gif")],
-                    v: [u(prefix + "v.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAYAAAATCAYAAACz13xgAAAAT0lEQVQY062PMQ7AIAwDj8Kf83gw7tKlhQxItZTp5EtCRLh3vyYi3AA0J980gJmBoayh31S290DS4Q4pUzlTjdOr0j9KLXvAanrAWuAiyQ2Hqz+Eaxa7lwAAAABJRU5ErkJggg==", false, true],
-                    h: [u(prefix + "h.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAH8AAAAGCAYAAADqkEEaAAAAM0lEQVRIS+3DsREAIAwDMS+bGdIyLAUVG4RnEFt3UneTnkXY0jxIz9rnkp5VVaRnASs9f4uJy0upJnsYAAAAAElFTkSuQmCC", u(prefix + "h.gif")],
-                    m: [u(prefix + "m.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAH8AAAATCAYAAAC5i9IyAAAAXElEQVQYGe3BgRHAMAABQLnaf+EEHYR/3ptgKlE2phNtYzrxyZhOtIzpRNuYTnwyphOTYDpREqYTbWM6UQqmExVhOtHPmE5MgunEJ2M68XwH04kIphRxMKWIqfUDGFEu5jKnhiUAAAAASUVORK5CYII=", null, true]
-                }, "3 3 3 3", { inset: '0 0 -1 0'});
+                return new uki.background.LinearGradient({
+                    startColor: '#FFFFFF',
+                    stops: [ 
+                        { pos: 0.7, color: '#D7DAE4' }
+                    ],
+                    endColor: '#D9DEE6',
+                    innerHTML: reflex,
+                    css: 'border:1px solid #666;border-radius:3px;box-shadow:0 1px 0 rgba(255,255,255,0.5);'
+                });
             },
 
             'button-down': function() {
-                var prefix = "button/down-";
-                return new uki.background.Sliced9({
-                    c: [u(prefix + "c.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAYAAAAGCAYAAADgzO9IAAAAR0lEQVQIW2NgAIKGhob/yJgBJlhQUPg/JTUDjEFssCSIyC8o+l9b1wjGIDZcoq9v4v9tO/aDMYiNYhyGHSDw////NGQMEgMAouBOxXrB3FIAAAAASUVORK5CYII=", u(prefix + "c.gif")],
-                    v: [u(prefix + "v.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAYAAAATCAYAAACz13xgAAAAkUlEQVQYV42Nuw4CMQwEHT9ojvvnNPTQ8LfIeH3BmKuwNMomI294zulz3vz+eCbIeGOK2a4b7fueIGNSmF1IRBPkEqxMYpIgl1A2UllE/m5IbCyQS4hEjS4iN6FHXYDcBCokkV7FrYp7lcXFVA+6oME0xkiQS3weS9YGj19q48QfVbQ+zY+b4BMlXu7kcfrKmDdNVhnN3VjMVQAAAABJRU5ErkJggg==", false, true],
-                    h: [u(prefix + "h.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAH8AAAAGCAYAAADqkEEaAAAARklEQVQYGe3BsQ2AQAwDQNvD0oCYIQ0UbIVExVDxDxLfsaqMGIn7cVoSYpbuBq/7sSTELN0Nvt9vgohZDINVZcRItL0hRloovBiO+VNuegAAAABJRU5ErkJggg==", u(prefix + "h.gif")],
-                    m: [u(prefix + "m.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAH8AAAATCAYAAAC5i9IyAAAAa0lEQVQYGe3BsREDQQwDseWJF/n7n3lH7lQuhAT8fn8rUWF2wc/zQRKVZXexfalMnjtUJnsulckzQ2XyeKhM9lwqk2eGyuTxUJl8bSqTpUNlsiQqkzmiMllUKkuiMhkdKpMPlcoLSKKy7C5/du0Mt289U6QAAAAASUVORK5CYII=", null, true]
-                }, "3 3 3 3", { inset: '0 0 -1 0'});
+                return new uki.background.LinearGradient({
+                    startColor: '#9C9DA1',
+                    stops: [ 
+                        { pos: 0.6, color: '#C5C7CD' }
+                    ],
+                    endColor: '#CCCFD6',
+                    css: 'border:1px solid #666;border-radius:3px;box-shadow:inset 0 1px 3px rgba(0,0,0,0.5);'
+                });
             },
             
             'button-focus': function() {
-                if (uki.image.needAlphaFix) return new uki.background.CssBox('filter:progid:DXImageTransform.Microsoft.Blur(pixelradius=3);background:#7594D2;', { inset: '-5 -5 -4 -5', zIndex: -2 } );
-                
-                var prefix = "button/focusRing-";
-                return new uki.background.Sliced9({
-                    c: [u(prefix + "c.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAAtUlEQVQokWNgQABGBof9LNqhq9hkQo9xgjCIDRIDy6GA0FXMKp7b2NX9jvCqJB4S1Y47IgfCIDZYDCgHUgM3GSSgkLBfQCfxoKxO3Ak93fijdiAMYoPEQHJgTWCbgFaCTAFJ6MafMNZNPOGvl3AiC4RBbJAYSA6kBuw8kDtBVoNNBis+WQWzGsQGiYHkwE4F+QnsOaB7QU4AmcqABsA2AeVAakBqSddAspNI9jTpwUpGxJGUNADqMZr1BXNgDAAAAABJRU5ErkJggg=="],
-                    v: [u(prefix + "v.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAUCAYAAAC58NwRAAAAf0lEQVQoU2MQj93JrZlwQlUn/qS3TsLJegY0ABIDyYHUgNQyqPsd4dWJPa6pl3giRDfxeB+6BpAYSA6kBqSWQSl0N79m7FEdvcSTkUA8DV0DSAwkB1IDUgvWoBN3Qk83/ni0buKJGegaQGIgOZCaUQ2jGgZeA0nJm+QMRGoWBQCeEP1BW4HCpgAAAABJRU5ErkJggg=="],
-                    h: [u(prefix + "h.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACsAAAAMCAYAAAD79EROAAAAOUlEQVRIx2NQCt3NP1Qwg3rkCb2hghl0o45HDxXMoJNwYsZQwQyjYBQMNTCkMtiQKrqGVKUwlKpbALcNHad+5qhBAAAAAElFTkSuQmCC"]
-                }, "6 6 6 6", { inset: '-4 -4 -4 -4', zIndex: 2 });
+                if (uki.browser.cssBoxShadow() == 'unsupported') {
+                    return new uki.background.CssBox( 
+                        'background:#7594D2;' + (uki.browser.cssFilter() && uki.image.needAlphaFix ? 'filter:Alpha(opacity=70);' : 'opacity:0.7;'), 
+                        { inset: '-2 -2', zIndex: -2 } 
+                    );
+                }
+                return new uki.background.Css({ 
+                    // WebkitTransition: '-webkit-box-shadow 0.2s linear',
+                    boxShadow: '0 0 6px #0244D4',
+                    borderRadius: '3px'
+                });
             },
             
             'button-disabled': function() {
@@ -6474,10 +7697,15 @@ uki.view.declare('uki.view.Toolbar', uki.view.Container, function(Base) {
             },
             
             'checkbox-focus': function() {
-                var src = uki.theme.imageSrc('checkbox-focus');
+                if (uki.image.needAlphaFix) {
+                    return new uki.background.CssBox('', 
+                        { innerHTML: '<div style="position:absolute;left:50%;top:50%;width:19px;height:19px;overflow:hidden;' +
+                        'margin:-10px 0 0 -10px;background:#7594D2;filter:Alpha(opacity=70);"></div>', zIndex: -2  }
+                    );
+                }
                 return new uki.background.CssBox('', 
                     { innerHTML: '<div style="position:absolute;left:50%;top:50%;width:24px;height:24px;overflow:hidden;' +
-                    'margin:-12px 0 0 -12px; background: url(' + src + ') 0 0"></div>', zIndex: -2  }
+                    'margin:-12px 0 0 -12px; background: url(' + uki.theme.imageSrc('checkbox-focus') + ') 0 0"></div>', zIndex: -2  }
                 );
             },
             
@@ -6508,6 +7736,7 @@ uki.view.declare('uki.view.Toolbar', uki.view.Container, function(Base) {
             },    
             
             'radio-focus': function() {
+                if (uki.image.needAlphaFix) return uki.theme.airport.background('checkbox-focus');
                 var src = uki.theme.imageSrc('radio-focus');
                 return new uki.background.CssBox('', 
                     { innerHTML: '<div style="position:absolute;left:50%;top:50%;width:24px;height:24px;overflow:hidden;' +
@@ -6543,80 +7772,116 @@ uki.view.declare('uki.view.Toolbar', uki.view.Container, function(Base) {
             },
             
             'toolbar-popup-button-hover': function() {
-                return new uki.background.Css({ background: '#4086FF', color: '#FFF', textAlign: 'left' });
+                return new uki.background.Css({ background: '#4086FF', color: '#FFF', textAlign: 'left', textShadow: 'none' });
             },
             
             
             // panel
             'popup-normal': function() {
-                return new uki.background.Multi(
-                    new uki.background.CssBox('opacity:0.95;background:#ECEDEE;-moz-border-radius:5px;-webkit-border-radius:5px;border-radius:5px;border:1px solid #CCC'),
-                    uki.theme.background('shadow-medium')
-                );
+                return new uki.background.CssBox('background:#ECEDEE;border-radius:5px;border:1px solid #CCC;box-shadow:0 3px 8px rgba(0,0,0,0.6)');
             },
             
             'panel': function() {
-                var prefix = "panel/dark-";
-                return new uki.background.Sliced9({
-                    h: [u(prefix + "h.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAAGCAYAAADpJ08yAAAAIElEQVQIW2NcvnzFfwYgYLx37z4aY8aMmWgMIJ4JYgAAGzEQWXMYYT0AAAAASUVORK5CYII=", u(prefix + "h.gif")],
-                    m: [u(prefix + "m.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAABlCAYAAABnRzLGAAAAPUlEQVQoz2O5e/fefwYgYGGAAgTj////DERLkaSY6lLkKaaQATfw379/BNVgSsF1Ud1hw5VBYYBTaCntGQBCJspdTUaYMwAAAABJRU5ErkJggg==", false, true]
-                }, "3 0 3 0");
+                return new uki.background.LinearGradient({
+                    startColor: '#DEDEDF',
+                    stops: [ 
+                        { pos: 0.2, color: '#D4D4D5' },
+                        { pos: 0.9, color: '#989899' }
+                    ],
+                    endColor: '#989899',
+                    css: 'box-shadow:0 1px 0 rgba(0,0,0,0.5);'
+                });
             },
             
             // text field
             'input': function() {
                 return new uki.background.CssBox(
-                   'background:white;border: 1px solid #999;border-top-color:#555;-moz-border-radius:2px;-webkit-border-radius:2px;border-radius:2px;-moz-box-shadow:0 1px 0 rgba(255, 255, 255, 0.4);-webkit-box-shadow:0 1px 0 rgba(255, 255, 255, 0.4);box-shadow:0 1px 0 rgba(255, 255, 255, 0.4)',
-                   { inset: '0 0 0 0' }
+                   'background:white;border: 1px solid #999;border-top-color:#777;box-shadow:0 1px 0 rgba(255, 255, 255, 0.4), inset 0 1px 2px rgba(0,0,0,0.2);'
                );
             },
             
+            'input-focus': function() {
+                if (uki.browser.cssBoxShadow() == 'unsupported') {
+                    return new uki.background.CssBox( 
+                        'background:#7594D2;' + (uki.browser.cssFilter() && uki.image.needAlphaFix ? 'filter:Alpha(opacity=70);' : 'opacity:0.7;'), 
+                        { inset: '-2 -2', zIndex: -2 } 
+                    );
+                }
+                return new uki.background.Css({ 
+                    // WebkitTransition: '-webkit-box-shadow 0.2s linear',
+                    boxShadow: '0 0 6px #0244D4'
+                });
+            },
+            
+            
+            
             // slider
+            'slider-handle-normal': function() {
+                return new uki.background.LinearGradient({
+                    startColor: '#FFFFFF',
+                    endColor: '#B1CEEA',
+                    innerHTML: sliderPin(),
+                    css: 'border:1px solid #8393A6;border-bottom-color:#687482;box-shadow:0 0 2px rgba(0,0,0,0.5);'
+                });
+            },
+            
+            'slider-handle-hover': function() {
+                return new uki.background.LinearGradient({
+                    startColor: '#DFF6FF',
+                    endColor: '#8AC5F3',
+                    innerHTML: sliderPin(),
+                    css: 'border:1px solid #8393A6;border-bottom-color:#687482;box-shadow:0 0 2px rgba(0,0,0,0.5);'
+                });
+            },
+
+            'slider-handle-focus': function() {
+                if (uki.browser.cssBoxShadow() == 'unsupported') {
+                    return new uki.background.CssBox( 
+                        'background:#7594D2;' + (uki.browser.cssFilter() && uki.image.needAlphaFix ? 'filter:Alpha(opacity=70);' : 'opacity:0.7;'), 
+                        { inset: '-2 -2', zIndex: -2 } 
+                    );
+                }
+                return new uki.background.CssBox(
+                    'box-shadow: 0 0 6px #0244D4;',
+                    { zIndex: 2, inset: '1' }
+                );
+            },
+            
             'slider-bar': function() {
-                var prefix = "slider/bar-"; 
-                return new uki.background.Sliced9({ 
-                    v: [u(prefix + "v.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAYAAAASCAYAAAB4i6/FAAAASUlEQVQY02NgGHqgvLz8PzKGC7a0tP1ftnwNGIPYYEkQsW//0f/Hjp8FYxAbLjFjxiy4BIgNlvj//38auh0gMbA9IAYyHvDQAACE3VpNVzKSLwAAAABJRU5ErkJggg==", u(prefix + "v.gif")], 
-                    m: [u(prefix + "m.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAARMAAAASCAYAAAB4gjqpAAAAUUlEQVQYGe3BwRFAMBAAwItJIVTAR0taSE9eVHiKOA9jdjcCAAAAAAAAgJ9rY4wMgKK+bnsAVPV5XgKgagqAF/T7OgOgqmXmEQAAAAAAAHzTAx6DCNiUJps4AAAAAElFTkSuQmCC", u(prefix + "m.gif"), true] 
-                }, "0 3 0 3", {fixedSize: '0 18'});            
+                uki.dom.offset.initializeBoxModel();
+                return new uki.background.CssBox(
+                    'overflow:visible;',
+                    { 
+                        inset: uki.dom.offset.boxModel ? '0 2 0 0' : '0 0',
+                        innerHTML: '<div style="' + uki.browser.css('position:absolute;left:0;overflow:hidden;width:100%;top:50%;height:3px;margin-top:-2px;background:#C6C7CD;border:1px solid #777;border-radius:3px;box-shadow:0 1px 0 rgba(255,255,255,0.5),inset 0 1px 1px rgba(0,0,0,0.2)') + '"></div>' 
+                    }
+                );
             },
             
             // list
             list: function(rowHeight) {
                 return new uki.background.Rows(rowHeight, '#EDF3FE');
             },
-
-            'shadow-big': function() {
-                return new uki.background.Sliced9(shadowData(), "23 23 23 23", {zIndex: -2, inset: '-4 -10 -12 -10'});
-            },
-            'shadow-medium': function() {
-                return new uki.background.Sliced9(shadowData(), "23 23 23 23", {zIndex: -2, inset: '-1 -6 -6 -6'});
+            
+            // table
+            'table-header': function() {
+                return new uki.background.LinearGradient({
+                    startColor: '#FFFFFF',
+                    stops: [
+                        { pos: 0.8, color: '#e0e0e0' }
+                    ],
+                    endColor: '#EEEEEE',
+                    css: 'border-bottom:1px solid #CCC;'
+                });
             }
         },
         
         images: {
-            'slider-handle': function() {
-                return uki.image(u("slider/handle.gif"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAkCAYAAACwlKv7AAABcUlEQVQ4T7WSy0sCYRRH758b0aKFCwmjB1kwlGEIJQiVvRe6iajIVpGbJArKjWK0GCgq7DE2muJt7kf3cmeaBlz0wVl8Z34Dw3AAvLNbqmIUtIHNo2sk/jr8HNb2K/jV60dCG8gVy9jq9IThsXmDdrQxw2arKySzRYN2mcIpQma7hE/vHYHuYQ5SG8doN9sC3cMcWKsHeP/sCnQPc5BcKWDtoSXwN/qct4GZzA5WbUcgSWhHG5hczP+SwZdpAwkrhxeNN2EivWXQjjYQn13Gcu1VSKTWDdrRBmJTS/6h9zahHW1gdHwBT25fIqENjMTnkND/TcPPTWpDsWmMAgY+AxXedZxQfIXffWIkUriWXLh2UvjlIwpcj3ZSuE/+FB50pvAzGwUuPOhM4aVGX+DCg84UfljvCvyNPseFF6oocOHaSeF7N22BC9dOCs9fuQIXrp0Unq24AheunRSeLjsCF66dFG6df0TiK7xid0L5v8K/AYNKQJdGv2S4AAAAAElFTkSuQmCC");
-            },
-            'slider-focus': function() {
-                if (uki.image.needAlphaFix) {
-                    var i = new uki.createElement('div', 'width:12px;height:18px;filter:progid:DXImageTransform.Microsoft.Blur(pixelradius=4);background:#7594D2;');
-                    i.width = 20;
-                    i.height = 28;
-                    return i;
-                }
-                return uki.image(u("slider/focus.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAAZCAYAAAA8CX6UAAABUUlEQVQ4y+2VsUoDQRCGVxRFRLQRGxUJETmyd4292IoQm1wRwuVuWx/BxjewDHmGPIAgFkFJvL23cr45MVhli20EFxaW2f//b+afvV1jVmPD3My3evls+yT/3D0uXvcu+4v9Tv52wGRNjD0wYJXza+Szze7tyw7grvs46o0XZ0nlL2xRJ0mxtExdS4w9MIoVDtyfTAicV/ND695P7dhnabm8tmVzlzk/yFwzbKcfENM9wYCFo2KamaSIOhtp6a9S5++zyj/YqnlKXf0sIhMma2LsgQELB66WSb2kqpmoSPNo1gwwYOGoFXim5kndpMzXTODQzIQDFw1DJ9RYqZ/UQ4XAwoGLhlF/pCOYiQ+hQq1/0gDhqk+cEdr73Z1JcGltE4Zw0VChtuX1SAychmfkp3Dg/gv9aaEo5yjayY72r0X7+6PdR9FuyHh3dsRXJMq79gUgPopCCBOTpwAAAABJRU5ErkJggg==");
-            },
             checkbox: function() {
                 var prefix = "checkbox/normal";
                 return uki.image(u(prefix + ".png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAABsCAYAAABn5uLmAAAF1UlEQVRYw+2Y3VMTVxjGve9N/4T+CU4vetErpxfauzp1puNFZ3Ckah1jibWOGqhFhYpY8AvBIoygiErwIxAI+UCQhhgkEQwgIQKiIXwJBEKABIJP913dlJNddE8602mrO/ObIee8z8Oe3cnL87JuXZLXJ+vXf/zp519kyjYM7nHwsOtgDrakaLDhy6+3xU30jucgXr2CKsorq7H3yGno8sqwZZtmc9zoWpMP0eUVVdxrcWDHT1k4VVaP/KsWMMe63PAY4UhM5Okzf/znRDp7fEjV/oLjRdUorm5GidHNGhUb2hCcX0azw41NX22Fy+MVP6/GPx7Ed2kZyMi/gtMVFjz2+UE6xqigqgUvQ1GcLa7A9n2Z2K45hGcjU+KahFaXhf1ZhcgrN6Hufoe4RjrGiM46EoxgYCSIvNI70B49jx1pOvj8k+J6ztlL2H04FydLa1F4wyquEbJnlFNSg+eTiyLtvX5kF+mxJ/0UUn84jIo7ZqTsTcexwirhburFfamWdIzRcaGof3whjtXZi8xzlUg7cga7DmQjI68cuaU1uNPoZupIxxj9LDzA3pEwQ2W9A1nCnWULbyjn0l0U3TDLakjHGB08UQyPf07GhesNwnMxIPuiHu39k7J90jFG+46eg3soJMPRN4ETRTdxu6lTcZ90jNEeXS6cAzPckI4x2rn/GIieQFg1kkb27d+m0YGXde/Z1eruBi8yk8ZWF4iVlVeqkTSMkanJgdjKCjekYxt/wz0sx2LckI4xqjKYsLS8zA3pGKMKvSEpI9IxRiVXbyK6tMQN6RijotIriESj3JCOMTpTeAkLkSg3pGOMTuYXYH4xwg3p2J594jeEFxa5IR1jlHE0G3PzC9yQjjE6oDuCUHieG9IxRmn7D4HgefWSRvbF3a3Rgpf/aSP8ZzKk2uutGTImhEw1NNudb8+QS0IfJob8gfjPifT09SN135sMeeu+coYMR1dgb3uETZu3iqGTPq9mbGoWO7R/ZciegWHlDDknpNaC0mtihkzdewijkzPimsSP6dnxDGm2d76uV8qQs4sxjE7P4fTl1xlylzYdgZcz4nrehdJ4hrxYZRPXCMUMORVeEukZCIjBijLkTq0OeqM1niHzhQxJ+1KtYoacEOKuhL2jTzFDmloeMXWKGXJkJsJw2+pkMmSJ3iqrUcyQL6YWZRRXWcQM+atwVF8gKNtXzJDPJxdk9A1P41RxFawPuhT3FTPk4MswN2tmyEBwUTUfMuTfuHg7JCEz4Z2yCUnDGPFM2ash3ZpTNg+kU5yyeVlzyuZlzSmbl7dO2Ty8c8pWi6opWw2qp+x3oXrKfhcfpuz/2rVx48aPUlK+/Ua2MRwYAA93DXpkHsvQazTfb4ibDA4+AREVZjA19PV5UVNbDZutDpmZ6Z/Fjbx9j1WbjI2NCgZmPHnigdOZ0EY8Xe2riiNrmszNhdDQUIfOThf6+73o6HSyRi5Xq1g4MTGKiopyzMxOKxqZTEY8fNiK3t4uLCyEQTrGyOFoFgs7OlyoN9XCaKyRmdhsFvxhb0J3dydGR4fFNdIxRk1N5rjA43GjudmGurpa4fOiuNbW5oDVZhL3vN7ueC3pGCOzxRjfnBWO5XI5hTswCXd2Fz5fr/CGbgtrD9DV9Ujcl2pJxxjVGm+9ecivGRsfFu7CjsZGM0wNRuEILcKx2+H3DzJ1pGOMqm9dFzbCDPRW2oWH6XI5xDukZ5NYQzrGqLLyivAWQjLoKC73AzxstyMUmpLtk44xKisrQTg8LSM4MyEecWioX3GfdOxf2uILwm+c5IZ0jNH5gjMgIpGwaiSN7Nufl58LXt63DDk8/AK8yEwGBp6CiAn/yVOLpGGMvN4eLhMJ0rEd0tORlBHpEjpkW1JGpEvokPakjEiX0CFtSRmRjjGyWExJGZGOMTIaDUkZkY7tkNX6pIxIl9AhryVlRLqEDnk5KSPSJXTI35MyIh07ixScB8FjImlkX9z8/Dzw8u/uZ38Cqx5HdHgrjesAAAAASUVORK5CYII=", u(prefix + ".gif"));
             },
             'checkbox-focus': function() {
-                if (uki.image.needAlphaFix) {
-                    var i = new uki.createElement('div', 'width:18px;height:18px;filter:progid:DXImageTransform.Microsoft.Blur(pixelradius=3);background:#7594D2;');
-                    i.width = 26;
-                    i.height = 26;
-                    return i;
-                }
                 return uki.image(u("checkbox/focus.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABdklEQVRIie2Wv0rDUBSHUxRFRHQRFxWRioTeZHEXVxHqYgaRNrmrj+Ai+AAdi6trH0AQh6K05uYpfBQ934m0EnHQcIuDB+5y7/l9J+dPchMEU2sER8P5VjJY2ExeljY6D8v77dHKbvK4+t3iHD/80aFXzhdLBnPN4/tFBE37vN7qjrbDzO2ZTh6GnbExXRdXl+5zLn74o1O9cOB9xjfY3MmGa8Y+bSGO0vGhSYuT2Lqz2BbnUZpfVBf7nOOn/gQWPRwNMslE0iIyh1HqDiLrTuPMXZqsuI5s3hNQX/Zuq6vcz3v44Y8OPRx4H+UKAmpHevrkCi+ubu5e33660KGHo2WmJ5g2SGpImjzJb+DTIJKJcODB1QBMgTZUakm6dQKghwMPrgbQ+ss00DBqWidA2TNpvPC0DxjzzMiVU1H0a5VI9HDgwZ0EKEdTxk+mo14GMmHCgfcf4I8F8DpF3t8D72+y92+R96+p9/vA/402gzt5Bn8VHu0d2HhIetPffvAAAAAASUVORK5CYII=");
             },
             radio: function() {
@@ -6624,7 +7889,6 @@ uki.view.declare('uki.view.Toolbar', uki.view.Container, function(Base) {
                 return uki.image(u(prefix + ".png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAABsCAYAAABn5uLmAAAGiklEQVRYw+2X/08TdxjH/RP6Z+2XJWeyzMTMjGkkEkmsog4VzSGiA0FUQAPIUHEqMC0i3Rgt66Sj8q0wkG9tgV4RAflij7b0C198du8Ozn6uPe66uGSJXvLO5fk8r+cNP/TeeT579vxXj8nmNTxzvuVbnEtCy8ASyZJqnKOvadLg8HKNDp/Y61khf2id3r8nWahxjj44VZN66xjX2OmmRTFMsY0tVaEPDnySSZnJZrhjdoqzyyEKRTc1BQ485hijyiY739btIv/ahm6BxxxjdO2BRXDPvqOlQExWR1c/fbnvO/riq2/jb9SJffCYY4x+uNNCc/4oowNHTtOpK9WUX9EQf6NWMphjjPIrHpNvOcLImF9O5Q1/UFVzd/yNWslgjjE6V1JHk2/DjPJK66j8sY0qJBO8USsZzDFGOQWVQtfIaxqfC8my9E7Q1dpnVFJnjr9RJ/bBY44xyj57lS+//5yGXwd1CzzmGKMMI2/IzLkotvdPkVMIaAoceMwl/Si/yTrNZZ7gydztpu4pUVXogwOv+pl8fSib23fomMhfryPTn+Nkd/tlocY5+uA0P1yOyzBw+zP5vfsPC3v3Z9IHHRZwjv6eT/yx2QYN9r5XfJdzRJBECRJwjr6mibWzn7N29Yujbi+tBtdoa+u9LNQ4Rx+cqskvVgdnsfeQPxCkza0tVaEPDnxy4JtMhua2DnHFv0obm5uaAgcec2zom8x8t3OI1jc2dAs85hijB03NwuLySlpG4DHHGN2pb6DY+nrawhxjdLv2PkVjsbSFOcbo+q0aCkdjaQtzjFFRaYXgm52jtUhUt8Bjjg3/wqv802etFApHdAs85hgjI88bzuUXilOCj4JrYU2BA4+5pB9lzpk87vzFQvJMeykQWlMV+uDAq34m2TmnuWM534t36x+RyzMlfV8hWahxjj44zQ83I8NoOJJt5LOOGoWsbCPJkmqco/+pJyR2RFPfPN/sXMDOSDtCjfM0dkhB7PMskxiKUeKDGufoa+yQLq7RPknLgShtSsunmtAHBz7FDjlo+LHtL/GttGiuS/msJXDgMccYVZle8lZpMQjFtnQLPOYYo4rGTsG3uEpBaWPdkb1nQNodD27vkAfjdWIfPObYZbS+nVYjm4wOZCl2SKlWMphLWkZXpM0+Ual2SCWTtIwW3GqkRWnlTdT50rvMDolayWCOMcorvS+8ml6gOTEqyzHkoZLtHRJv1Il98JhjjE4XVvF1TzpoZiWiW+Axp0jIMsPx/Jti/8SstD+HNQUOPOaSfpRZZ4q4E/k3qGdMoOmlkKrQBwde9TPJzOE5bKs3655Q1/A0uReCslDjHH1wuhIyI/ssn3H0rCC9SdY/9eeE/NgJ2SsloV9KRPaWHaPedBJyUYxo3LIj2gmZzi1bNSHb+ybTumWDT5mQnjd+5hatJfApE1J5g9ajlAmpvEHrUcqEVN6g9ShlQjrG3jC3aC2BT5mQVY3WtG7Z4FUT0jog6Lplg9s1IY/z1+nXvqldb9nog9OVkEXVTdTy0sPcslHj/HNCfsTH6x00eL3jvFeYEASfi3aEOn7u1XHLdrkGOZd7SJyfn6FwBLfsLVmocY4+OFWTweEebnRsgNbWQoyBUuiDA59kYrPZDL19nWIoFNjVZEfgwGOOMXrxwsK7XKO6THYEHnOMkcXSKqyuikl/1e0ZoQnXUPyt/G/BY44xet76NOkvjow6aWi4VxZqJYM5xqjp54dJUE+PPUlKBnOM0U8P70qNTUYOxwuy2ztkoVYymGOMamurhaWleakZlbW8PE+/236jdos5/kad2AePOcaosvIGb7W20fp6WLfAY44x4qXbcum1YnH2jZei0YCmwIHnU92yL18u4K6VFdPMzCSFw6Kq0AcHXvUzycs7w124cE5sanpE09MTFAyuyEKNc/TBaX64RqPRkJt7kpck5Oaeog9CfZJH/3NCfqSEdG8nZESRkJHthHRrJeTwcD83Pj6oKyHBgU+ZkP1Oh5SQQZ0JGSTwSQnZ1WXjPZ6JtBISPOYYo85OixAIrKZlBB5zyqhNy2RHmGOMWs2mf2WEOcboqakhKf30CHOM0aPH9cLKuwUmAbUEHnOM0b17NbzdbksrIcFjjjEqKyszVFffln7RPl0JCQ485pJ+lOXlZVxNzW2anZ3eNSHRBwde9TMpKStC3IpmczP5fB4mIVHjHH1wmh8uAv1KUQFfVHxJKCoupA+6JOA8ZeD/L5+/ASNtA71vTxEVAAAAAElFTkSuQmCC", u(prefix + ".gif"));
             },
             'radio-focus': function() {
-                if (uki.image.needAlphaFix) return uki.theme.airport.image('checkbox-focus');
                 return uki.image(u("radio/focus.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAABcElEQVRIx92VP0oEMRTGt9ADeAERq21E8ACLNp7AUrRbWdzdDDa6IBhnM5YqaCPCiiewyPzBA1gK1oIsHsNCNL9owBl1HYWM6MBjSPK+7+W99yWp1X7jm5dyrLUVTwTyYqotdb0dJjOdUM86Y8w86/jhX5q82TwZF1JPrkd6rtNPF40tiTBb7qps1Rlj5lnHD39wpchbMp4WKmmIKF0x/+0gSg8DlZ0KlZ05Y8w8669+DXAjgzjy7m68IPrJmoiS/Y29S907vr7fGdw+hOfDJ2eMmWcdP/zBfRqEGpKm3TnkKj3aPLi6kYO7x7fERWMdP/xfcAZveN71hEbZWpKu2RGgUcRFs0HIxODhgS8XADXQMGpK2l/t/KNMbLkMHh74cgGQHKqgcdT2O+TOwIGHB758AKNrpIc6ig0ta+Cs2gwPfLkAHB6rbyPBn5A7Aw8PfP8sgPceeFeR93Pg/SR7v4u836aVvAeVvGiVvMl/7nsGaBHOn+3vxvEAAAAASUVORK5CYII=");
             }
         },
@@ -6644,7 +7908,7 @@ uki.view.declare('uki.view.Toolbar', uki.view.Container, function(Base) {
         templates: {
             'table-header-cell': function() {
                 return new uki.theme.Template(
-                    '<div style="position:relative;border:1px solid #CCC;border-top:none;border-left:none;'+
+                    '<div style="position:relative;border-right:1px solid #CCC;'+
                     '${style}" class="${className}">${data}</div>');
             },
             
@@ -6652,6 +7916,18 @@ uki.view.declare('uki.view.Toolbar', uki.view.Container, function(Base) {
                 return new uki.theme.Template(
                     '<div style="position:relative;border-right:1px solid #CCC;height:100%;'+
                     '${style}" class="${className}">${data}</div>');
+            },
+            
+            'table-header-cell-asc': function() {
+                return new uki.theme.Template(
+                    '<div style="position:relative;border-right:1px solid #CCC;background: rgba(0,0,128,0.1);'+
+                    '${style}" class="${className}"><div style="padding-right:7px">${data}</div><span style="position:absolute;right:0;top:50%;margin-top:-7px;">&darr;</span></div>');
+            },
+            
+            'table-header-cell-desc': function() {
+                return new uki.theme.Template(
+                    '<div style="position:relative;border-right:1px solid #CCC;background: rgba(0,0,128,0.1);'+
+                    '${style}" class="${className}"><div style="padding-right:7px">${data}</div><span style="position:absolute;right:0;top:50%;margin-top:-7px;">&uarr;</span></div>');
             }
         },
         
@@ -6706,10 +7982,10 @@ uki.view.declare('uki.view.Toolbar', uki.view.Container, function(Base) {
                 return 'font-size:12px;';
             },
             'button': function() {
-                return 'color:#333;text-align:center;font-weight:bold;';
+                return 'color:#333;text-align:center;font-weight:bold;text-shadow:0 1px 0 rgba(255,255,255,0.6);';
             },
             'input': function() {
-                return 'font-size:11px;';
+                return 'font-size:12px;';
             }
         }
     });
@@ -6734,17 +8010,11 @@ uki.view.declare('uki.view.Toolbar', uki.view.Container, function(Base) {
         );
     }
     
-    function shadowData() {
-        var prefix = "shadow/large-";
-        return {
-            c: [u(prefix + "c.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAC4AAAAuCAYAAABXuSs3AAACzklEQVRo3t2a63KiUBCEPYCX1U2Ixvd/Qm/kYjRBWd2aTjW950CS3fyYtaprULl8p2kGAcMg/QqR6SDTsXk/8moi041Mx+bt3WAKVDVIDOQj0ArcROCbFHzoAGbYTICzLwygC/jc8T62bGccFDKLKLUXeH2625sIpCo2mBa8bkiBWbkpo5oaQMrxFPCJ6ikxkNYAQg90Tiqk5h0DiDmeAoZqqTqIFrxuSB0uSENTQVUHkHJdnVbgN6qYrmkQ6n7U6VygRwY6Eg1pHiyDdcQcx0YZGLCvInxWyx44q+Nwi6Hh8Ng0kTqieTQ2QcCbSDzeCPB40UHqUfYAlvu9Lu0aDD0i0B+iiQnup1wfdLgNdw+mFxEG8CrwZziuB6JCT00zqQyfcn3Q4TZD7y96lrqPwL9HJkiLKygecPcK+tN0Y3VG348lMlnC8bNE5EjuXmGfLnq0+mSf4fujuh6kM8DtCUHfmG6pMry63uc4u83QDwaO+kjwB3U9SD45InD61lSS4PzU4GNxUXCNyYvFAU5XpAcTnOfI/AFeiNuIxhX0TgT3pxKXoge8lpjsyeWdqKLosOs1wIcEzgck3L6Czk0Le1/ad7O/BH826MpgNxdtTTtynQ/UFngh4DNym6HvbfqO4oKcfwYc+UZMdga7FviKss7gdbB45NJNAA637wl8QXFBzsfSz7vAccLZ00EJt9dU4TofpOgup0AbLKSbICYAZiEu3NM/6zh6NmKyFm0oLtxdWo5z/8ZJpiTwpYDPxfGvgsPxrUCvCLyik9J7P1dw7igAB+zStDDw8h+BVwa+MeAVDQDg3FmS4NxR5gTN9TvA1wS9opxrZ+kFL6mbLEnfDb6iqGzJ8f8f3F1UXB6cLtuhyxOQy1O+2x9Zbn/Wur2QcHvp5vZi2e3tCbc3hNzegnN709P1bWaXN/bdPkpx/fDK9eNCtw9oXT8Sd/MnhF+iLpLibpmRrgAAAABJRU5ErkJggg==", u(prefix + "c.gif")],
-            v: [u(prefix + "v.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAC4AAAAECAYAAADxjg1nAAAAWklEQVQYGdXBWwpAQAAAwLEeSUqy9z/hSkpSnh9OsTMFGlSo0aJDjwEjJkREREwYMaBHhxY1KpQIKPxePLhx4cSBHRtWLJiRkJAwY8GKDTsOnLiCTAWZCjL1AeihFg5/1kytAAAAAElFTkSuQmCC", u(prefix + "v.gif")],
-            h: [u(prefix + "h.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAuCAYAAAAPxrguAAAAe0lEQVQoz5XSWwtAQBCG4XEMOST+/y8kOYScKRe8WzZbc7FPX7PNtLaIuPI49l0vUBIewT/LuO/7BRETMRMpExkh/w9KD+WVhBASAu20jnZjFsEkGAQh7ISNsBIWwkwYCT2hI9SEilASiv+g9KgEH6ZhomVi0E47fW7sAEmnGr/QVlzBAAAAAElFTkSuQmCC", u(prefix + "h.gif")],
-            m: [u(prefix + "m.png"), "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAEUlEQVQIHWNgYGD4i4ZJFQAAAkoP0RsgosoAAAAASUVORK5CYII=", u(prefix + "m.gif"), true]
-        };
-    };
+    function sliderPin () {
+        return '<div style="' + uki.browser.css('position:absolute;overflow:hidden;z-index:10;left:50%;top:50%;width:2px;height:11px;margin:-6px 0 0 -1px;background:#8599AE;border-top:1px solid #6A7A8C;') + '"></div>';
+    }
     
-    uki.theme.airport.backgrounds['input-focus'] = uki.theme.airport.backgrounds['button-focus'];
+    uki.theme.airport.backgrounds['slider-handle-down'] = uki.theme.airport.backgrounds['slider-handle-hover'];
     uki.theme.airport.backgrounds['toolbar-popup'] = uki.theme.airport.backgrounds['popup-normal'];
     uki.theme.airport.backgrounds['toolbar-popup-button-disabled'] = uki.theme.airport.backgrounds['toolbar-popup-button-normal'];
 
