@@ -35,3 +35,9 @@ body {
 #uml-state-color > div { 
   border: none !important;
 }
+
+#gradient-start-color > div,
+#gradient-via-color > div,
+#gradient-end-color > div { 
+  border: none !important;
+}
